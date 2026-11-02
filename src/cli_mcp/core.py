@@ -101,7 +101,8 @@ def prepare(
         apply_overrides(settings, **overrides)
 
     target = resolve_binary(settings.binary)
-    context = DiscoveryContext(settings.discovery, cwd=working_dir)
+    help_suffix = "-h" if Path(target.resolved_path).stem.casefold() == "git" else "--help"
+    context = DiscoveryContext(settings.discovery, cwd=working_dir, help_argv_suffix=help_suffix)
 
     if target.framework is None:
         root_help = context.help_for(target)

@@ -5,7 +5,9 @@ from pathlib import Path
 
 import pytest
 
+from cli_mcp import core
 from cli_mcp.core import apply_overrides, approval_mode, prepare, transport_endpoint
+from cli_mcp.detect import TargetInfo
 from cli_mcp.errors import BinaryNotFoundError, ConfigError, DiscoveryError
 
 pytestmark = pytest.mark.integration
@@ -84,6 +86,20 @@ def test_prepare_reads_a_node_cli(repo_root: Path, node_script: Path) -> None:
     assert prepared.target.origin == "node"
     assert prepared.target.framework in {"commander", "click"}
     assert sorted(prepared.result.tool_names()) == ["fetch", "nodesample", "purge", "transform"]
+
+
+def test_prepare_uses_git_short_help_without_opening_manual_pages(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    target = TargetInfo(binary="git", resolved_path=str(tmp_path / "git.exe"), origin="native")
+
+    monkeypatch.setattr(core, "resolve_binary", lambda _: target)
+
+    def inspect_context(target, settings, context, registry):
+        assert context.help_argv_suffix == "-h"
+        raise RuntimeError("checked")
+
+    monkeypatch.setattr(core, "discover", inspect_context)
+    with pytest.raises(RuntimeError, match="checked"):
+        prepare("git", cwd=tmp_path)
 
 
 def test_prepare_applies_a_configuration_file(tmp_path: Path, reducer_script: Path) -> None:
