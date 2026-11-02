@@ -151,6 +151,21 @@ def test_providers_lists_core_and_plugin_providers() -> None:
     assert "DiscoveryProvider" in output
 
 
+def test_config_file_can_supply_the_binary(repo_root: Path) -> None:
+    result = runner.invoke(cli_module.app, ["inspect", "--config", str(repo_root / "examples" / "cli-mcp.yaml")])
+    assert result.exit_code == 0
+    output = captured(result)
+    assert "3 MCP tools" in output
+    assert "strip_aliases" in output
+    assert "read-only" in output
+
+
+def test_a_command_without_any_binary_reports_a_failure() -> None:
+    result = runner.invoke(cli_module.app, ["inspect"])
+    assert result.exit_code == 2
+    assert "✗" in captured(result)
+
+
 def test_expose_prints_the_checklist_and_starts_the_server(
     monkeypatch: pytest.MonkeyPatch,
     repo_root: Path,
@@ -198,5 +213,6 @@ def test_serve_starts_the_server_without_a_checklist(monkeypatch: pytest.MonkeyP
 
 
 def test_help_describes_the_project() -> None:
+    """The root help page explains what the tool does."""
     result = runner.invoke(cli_module.app, ["--help"])
     assert "Usage" in captured(result)

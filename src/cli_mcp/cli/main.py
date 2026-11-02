@@ -32,6 +32,11 @@ def _config_option() -> Any:
     return typer.Option(None, "--config", help="Path to a cli-mcp.yaml config file")
 
 
+def _binary_argument(help_text: str) -> Any:
+    """Fresh ``binary`` argument; a config file may supply it instead."""
+    return typer.Argument(None, help=help_text)
+
+
 def _include_option() -> Any:
     """Fresh ``--include`` option declaration."""
     return typer.Option(None, "--include", help="Only expose these commands")
@@ -112,7 +117,7 @@ def _overrides(
     }
 
 
-def _prepare(binary: str, config: str | None, overrides: dict[str, object]) -> PreparedCli:
+def _prepare(binary: str | None, config: str | None, overrides: dict[str, object]) -> PreparedCli:
     """Discover the binary, turning cli-mcp errors into CLI failures."""
     try:
         return prepare(binary, config=config, overrides=overrides)
@@ -148,7 +153,7 @@ app = typer.Typer(name="cli-mcp", help=DESCRIPTION, no_args_is_help=True, add_co
 
 @app.command()
 def expose(
-    binary: str = typer.Argument(..., help="The CLI to expose as an MCP server"),
+    binary: str | None = _binary_argument("The CLI to expose as an MCP server"),
     config: str | None = _config_option(),
     transport: TransportName | None = typer.Option(None, "--transport", help="stdio, http, streamable-http or sse"),
     host: str | None = typer.Option(None, "--host", help="Bind host for HTTP transports"),
@@ -193,7 +198,7 @@ def expose(
 
 @app.command()
 def serve(
-    binary: str = typer.Argument(..., help="The CLI to expose as an MCP server"),
+    binary: str | None = _binary_argument("The CLI to expose as an MCP server"),
     config: str | None = _config_option(),
     transport: TransportName | None = typer.Option(None, "--transport", help="stdio, http, streamable-http or sse"),
     host: str | None = typer.Option(None, "--host", help="Bind host for HTTP transports"),
@@ -226,7 +231,7 @@ def serve(
 
 @app.command()
 def inspect(
-    binary: str = typer.Argument(..., help="The CLI to inspect"),
+    binary: str | None = _binary_argument("The CLI to inspect"),
     config: str | None = _config_option(),
     include: list[str] | None = _include_option(),
     exclude: list[str] | None = _exclude_option(),
@@ -262,7 +267,7 @@ def inspect(
 
 @app.command()
 def export(
-    binary: str = typer.Argument(..., help="The CLI to document"),
+    binary: str | None = _binary_argument("The CLI to document"),
     config: str | None = _config_option(),
     output: Path | None = typer.Option(None, "--output", "-o", help="Markdown file to write"),
     include: list[str] | None = _include_option(),
@@ -278,7 +283,7 @@ def export(
 
 @app.command("export-schema")
 def export_schema(
-    binary: str = typer.Argument(..., help="The CLI to export"),
+    binary: str | None = _binary_argument("The CLI to export"),
     config: str | None = _config_option(),
     output: Path | None = typer.Option(None, "--output", "-o", help="JSON file to write"),
     include: list[str] | None = _include_option(),
@@ -302,7 +307,7 @@ def export_schema(
 
 @app.command("export-openapi")
 def export_openapi(
-    binary: str = typer.Argument(..., help="The CLI to export"),
+    binary: str | None = _binary_argument("The CLI to export"),
     config: str | None = _config_option(),
     output: Path | None = typer.Option(None, "--output", "-o", help="OpenAPI JSON file to write"),
     include: list[str] | None = _include_option(),
@@ -319,7 +324,7 @@ def export_openapi(
 
 @app.command()
 def doctor(
-    binary: str = typer.Argument(..., help="The CLI to check"),
+    binary: str | None = _binary_argument("The CLI to check"),
     config: str | None = _config_option(),
     allow_reflection: bool | None = _reflection_option(),
 ) -> None:

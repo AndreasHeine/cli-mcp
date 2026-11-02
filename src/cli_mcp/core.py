@@ -86,7 +86,7 @@ def apply_overrides(settings: Settings, **flags: Any) -> Settings:
 
 
 def prepare(
-    binary: str,
+    binary: str | None = None,
     config: str | Path | None = None,
     cwd: Path | None = None,
     overrides: dict[str, Any] | None = None,
