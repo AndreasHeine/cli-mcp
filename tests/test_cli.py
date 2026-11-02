@@ -25,6 +25,35 @@ def captured(result: Any) -> str:
     return "".join(parts)
 
 
+class PlainStream:
+    """A stream with no ``reconfigure`` method, as piped output can be."""
+
+    def write(self, text: str) -> int:
+        return len(text)
+
+    def flush(self) -> None:
+        pass
+
+
+def test_prepare_streams_handles_streams_without_reconfigure(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cli_module.sys, "stdout", PlainStream())
+    monkeypatch.setattr(cli_module.sys, "stderr", PlainStream())
+    cli_module._prepare_streams()
+
+
+def test_prepare_streams_sets_utf8_when_possible(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[str] = []
+
+    class Reconfigurable(PlainStream):
+        def reconfigure(self, encoding: str, errors: str) -> None:
+            seen.append(f"{encoding}/{errors}")
+
+    monkeypatch.setattr(cli_module.sys, "stdout", Reconfigurable())
+    monkeypatch.setattr(cli_module.sys, "stderr", Reconfigurable())
+    cli_module._prepare_streams()
+    assert seen == ["utf-8/replace", "utf-8/replace"]
+
+
 def test_init_writes_a_readable_template(tmp_path: Path) -> None:
     output = tmp_path / "cli-mcp.yaml"
     result = runner.invoke(cli_module.app, ["init", "git", "--readonly", "--approval", "--output", str(output)])

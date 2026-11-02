@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -376,8 +378,18 @@ def providers() -> None:
     console.print(PROTOCOL_DOC)
 
 
+def _prepare_streams() -> None:
+    """Give the output streams a codec that can carry the check and cross glyphs."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            with contextlib.suppress(OSError, ValueError):  # pragma: no cover - a stream that cannot be reconfigured
+                reconfigure(encoding="utf-8", errors="replace")
+
+
 def main() -> None:
     """Console entry point."""
+    _prepare_streams()
     app()
 
 
