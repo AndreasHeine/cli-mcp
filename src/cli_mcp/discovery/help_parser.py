@@ -568,7 +568,23 @@ def parse_help(text: str) -> ParsedHelp:
     for option in result.options:
         if option.name in result.required_options:
             option.required = True
+    _drop_subcommand_selectors(result)
     return result
+
+
+def _drop_subcommand_selectors(result: ParsedHelp) -> None:
+    """Remove positionals that only enumerate the subcommands listed beneath them."""
+    names = {item.name for item in result.subcommands}
+    if not names:
+        return
+    kept = [positional for positional in result.positionals if not _lists_subcommands(positional.name, names)]
+    result.positionals = kept
+
+
+def _lists_subcommands(name: str, names: set[str]) -> bool:
+    """Whether a positional name is really the comma-separated subcommand list."""
+    parts = [part.strip() for part in name.split(",")]
+    return len(parts) > 1 and all(part in names for part in parts)
 
 
 def is_help_noise(description: str) -> bool:

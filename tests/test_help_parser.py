@@ -15,6 +15,25 @@ options:
   --strip-aliases      Drop alias entries
 """
 
+SUBPARSER = """usage: reducer [-h] {reduce,diff,analyze} ...
+
+positional arguments:
+  {reduce,diff,analyze}
+    reduce   Write a reduced copy
+    diff     Compare two files
+    analyze  Summarise a file
+
+options:
+  -h, --help  show this help message and exit
+"""
+
+
+def test_subparser_listing_is_not_a_positional_argument() -> None:
+    parsed = parse_help(SUBPARSER)
+    assert parsed.positionals == []
+    assert {item.name for item in parsed.subcommands} == {"reduce", "diff", "analyze"}
+
+
 COBRA = """Available Commands:
   complete  Generate completion scripts
   help      Help about any command

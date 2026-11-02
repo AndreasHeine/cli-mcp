@@ -62,7 +62,7 @@ def test_prepare_discovers_an_argparse_script(repo_root: Path, reducer_script: P
     prepared = prepare(str(reducer_script), cwd=repo_root)
     assert prepared.target.origin == "python"
     assert prepared.target.framework == "argparse"
-    assert sorted(prepared.result.tool_names()) == ["analyze", "diff", "reduce", "reducer"]
+    assert sorted(prepared.result.tool_names()) == ["analyze", "diff", "reduce"]
     assert prepared.launch == [sys.executable, str(reducer_script)]
     assert prepared.binary_path == prepared.target.resolved_path
 

@@ -180,6 +180,34 @@ def test_discover_from_help_skips_root_with_only_subcommands(tmp_path: Path) -> 
     assert result.tool_names() == ["run"]
 
 
+ARGPARSE_SUBPARSER_ROOT_HELP = """usage: tool [-h] {reduce,diff,analyze} ...
+
+Reduce and compare files.
+
+positional arguments:
+  {reduce,diff,analyze}
+    reduce   Reduce a file
+    diff     Compare files
+    analyze  Summarise a file
+
+options:
+  -h, --help  show this help message and exit
+"""
+
+
+def test_help_provider_skips_a_root_that_only_lists_subcommands(tmp_path: Path) -> None:
+    settings = Settings(binary="tool")
+    target = script_target(tmp_path)
+    context = canned_context(
+        settings,
+        target,
+        {"": ARGPARSE_SUBPARSER_ROOT_HELP, "reduce": REDUCE_HELP, "diff": REDUCE_HELP, "analyze": REDUCE_HELP},
+    )
+    result = discover_from_help(target, context, settings, "argparse")
+    assert sorted(result.tool_names()) == ["analyze", "diff", "reduce"]
+    assert result.get("tool") is None
+
+
 def test_discover_from_help_respects_max_depth(tmp_path: Path) -> None:
     settings = Settings(binary="tool")
     settings.discovery.max_depth = 1

@@ -98,6 +98,11 @@ def parameters_from(parsed: ParsedHelp) -> list[Parameter]:
     return parameters
 
 
+def _publishable_options(parsed: ParsedHelp) -> bool:
+    """Whether a help page advertises options that become MCP arguments."""
+    return any(option.name.lower() not in SKIP_PARAMETERS for option in parsed.options)
+
+
 def tool_base(target: TargetInfo) -> str:
     """Tool name for the root command: the binary's file name without its suffix."""
     stem = Path(target.resolved_path).stem if target.resolved_path else target.binary
@@ -177,7 +182,7 @@ def discover_from_help(
         help_result = ctx.cache.get(tuple([*launch_for(target.resolved_path), *path, ctx.help_argv_suffix]))
         if path and len(path) > settings.discovery.max_depth:
             continue
-        emits_root = not path and (parsed.options or not parsed.subcommands)
+        emits_root = not path and (_publishable_options(parsed) or not parsed.subcommands)
         if path or emits_root:
             commands.append(command_for(target, path, parsed, provider, help_result, refine, prefix))
         seen.add(tuple(path))
