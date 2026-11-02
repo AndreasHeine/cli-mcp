@@ -1,0 +1,99 @@
+# Example configuration for the bundled sample CLIs.
+#
+# Run one of them through cli-mcp from the repository root:
+#   cli-mcp serve --config examples/cli-mcp.yaml
+#   cli-mcp expose examples/sample-clis/reducer.py
+#
+# The ``tools`` block is a manifest: it overrides whatever recursive help
+# discovery found, so the published tool set is exactly what is declared here.
+
+cli-mcp:
+  binary: examples/sample-clis/reducer.py
+  manifest: examples/cli-mcp.yaml
+
+  mcp:
+    name: reducer-tools
+    title: OPC UA nodeset reducer
+    description: Reduce, compare and summarise OPC UA nodeset files.
+    transport: stdio
+    include_docs_tool: true
+
+  security:
+    readonly: true
+    approval: false
+    allowlist:
+      - reducer.py
+      - git
+      - curl.exe
+    timeout_seconds: 30
+
+  discovery:
+    strategies: [help, manifest]
+    max_depth: 2
+    allow_import_reflection: false
+    exclude: [completion, help]
+
+  tools:
+    - name: reduce
+      path: [reduce]
+      description: Write a reduced copy of a nodeset file.
+      parameters:
+        - name: input
+          kind: option
+          type: string
+          required: true
+          description: Source nodeset XML file.
+        - name: output
+          kind: option
+          type: string
+          required: true
+          description: Destination file for the reduced nodeset.
+        - name: format
+          kind: option
+          type: string
+          default: xml
+          choices: [xml, json]
+          description: Output format for the reduced nodeset.
+        - name: strip_aliases
+          cli_name: strip-aliases
+          kind: flag
+          description: Drop alias entries from the output.
+      examples:
+        - reducer reduce --input model.xml --output reduced.xml
+
+    - name: diff
+      path: [diff]
+      description: Compare two nodeset files and report the line delta.
+      parameters:
+        - name: left
+          kind: positional
+          type: string
+          required: true
+          description: First nodeset file.
+        - name: right
+          kind: positional
+          type: string
+          required: true
+          description: Second nodeset file.
+        - name: quiet
+          kind: flag
+          description: Print only the line delta.
+
+    - name: analyze
+      path: [analyze]
+      description: Summarise a nodeset file.
+      parameters:
+        - name: input
+          kind: option
+          type: string
+          required: true
+          description: Nodeset file to summarise.
+        - name: format
+          kind: option
+          type: string
+          default: json
+          choices: [text, json]
+          description: Summary format.
+        - name: verbose
+          kind: flag
+          description: Include the verbose summary line.

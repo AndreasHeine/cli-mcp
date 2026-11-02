@@ -1,0 +1,100 @@
+[project]
+name = "cli-mcp"
+version = "0.1.0"
+description = "Swagger for command line tools — expose any CLI as a fully compliant MCP server"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "Apache-2.0" }
+authors = [{ name = "cli-mcp contributors" }]
+keywords = ["mcp", "cli", "model-context-protocol", "json-schema", "openapi", "discovery"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = [
+    "pydantic>=2.9",
+    "typer>=0.15",
+    "rich>=13.9",
+    "pyyaml>=6.0",
+    "mcp>=1.9",
+    "httpx>=0.27",
+    "uvicorn>=0.30",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "types-PyYAML>=6.0",
+    "pre-commit>=4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/anthony-chirco/cli-mcp"
+Repository = "https://github.com/anthony-chirco/cli-mcp"
+Issues = "https://github.com/anthony-chirco/cli-mcp/issues"
+
+[project.scripts]
+cli-mcp = "cli_mcp.cli.main:main"
+
+# Plugin entry-point group. Third parties register extra discovery providers:
+#   [project.entry-points."cli_mcp.discovery"]
+#   my-provider = "my_pkg.provider:MyProvider"
+[project.entry-points."cli_mcp.discovery"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cli_mcp"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "tests", "docs", "examples"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C90", "SIM", "RUF", "ANN", "D"]
+ignore = ["D203", "D213", "ANN401"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN", "D", "E501"]
+"examples/**" = ["D", "ANN", "B008", "UP042"]
+"src/cli_mcp/cli/main.py" = ["B008"]
+"src/cli_mcp/discovery/introspect.py" = ["D", "ANN"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["cli_mcp"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+plugins = ["pydantic.mypy"]
+warn_unused_ignores = true
+show_error_codes = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "--cov=cli_mcp --cov-report=term-missing --cov-report=xml --cov-fail-under=90"
+markers = [
+    "integration: discovery/execution tests using sample CLIs",
+    "e2e: end-to-end tests against real installed binaries",
+]
+
+[tool.coverage.run]
+source = ["src/cli_mcp"]
+omit = ["src/cli_mcp/discovery/introspect.py"]
