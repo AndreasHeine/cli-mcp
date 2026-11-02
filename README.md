@@ -233,7 +233,16 @@ publish to PyPI.
 
 - [`examples/cli-mcp.yaml`](examples/cli-mcp.yaml) — full configuration
 - [`examples/sample-clis/`](examples/sample-clis) — small argparse/click/typer/commander apps used by the tests
-- [`docs/examples.md`](docs/examples.md) — client configuration recipes
+
+## Documentation
+
+- [configuration.md](docs/configuration.md) — every config key and CLI flag
+- [discovery.md](docs/discovery.md) — reflection, help parsing and manifests
+- [security.md](docs/security.md) — allow list, read-only, approval, sandboxing
+- [transports.md](docs/transports.md) — stdio, HTTP, Streamable HTTP, SSE
+- [clients.md](docs/clients.md) — configuration recipes for Claude, VS Code, Cursor, Cline, Open WebUI
+- [plugins.md](docs/plugins.md) — adding a discovery provider for a new framework
+- [architecture.md](docs/architecture.md) — how the pipeline fits together
 
 ---
 
