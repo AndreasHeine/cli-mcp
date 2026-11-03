@@ -3,23 +3,33 @@ name: Release
 on:
   release:
     types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  publish:
-    name: Publish to PyPI
+  build:
+    name: Validate release distributions
     runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-      - run: uv sync --extra dev
-      - run: uv run ruff check .
-      - run: uv run mypy src
-      - run: uv run pytest
+          python-version: "3.13"
+      - run: uv sync --locked --extra dev
+      - run: uv run --no-sync ruff check .
+      - run: uv run --no-sync mypy src
+      - run: uv run --no-sync pytest
       - run: uv build
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Smoke test installed wheel
+        run: uv run --no-project --with "$(find dist -name '*.whl' -print -quit)" python -I -c "import cli_mcp; print(cli_mcp.__version__)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-distributions
+          path: dist/*
+          if-no-files-found: error

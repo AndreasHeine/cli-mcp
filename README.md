@@ -48,7 +48,7 @@ pip install cli-mcp
 or, for development:
 
 ```bash
-git clone https://github.com/anthony-chirco/cli-mcp
+git clone https://github.com/AndreasHeine/cli-mcp
 cd cli-mcp
 uv sync --extra dev
 uv run cli-mcp --help
@@ -313,8 +313,13 @@ The full test suite creates temporary files and runs Git integration commands.
 For non-invasive validation without test caches, coverage files or generated target scripts,
 use the focused Windows/Linux commands in [security.md](docs/security.md).
 
-GitHub Actions run lint, type checking, tests, and build on every push; tagged releases
-publish to PyPI.
+GitHub Actions run lint, type checking, Windows/Linux tests (Python 3.13/3.14), and
+distribution builds on pushes to `master`/`main` and pull requests. CI can also be started
+manually from the Actions tab. Dependencies are installed from the checked-in lockfile.
+
+Published GitHub releases (or a manual Release workflow run) validate and build distributions,
+then upload wheels and source distributions as workflow artifacts. **PyPI publishing is
+disabled** until a publishing account and trusted publisher are explicitly configured.
 
 ---
 

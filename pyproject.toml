@@ -38,9 +38,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/anthony-chirco/cli-mcp"
-Repository = "https://github.com/anthony-chirco/cli-mcp"
-Issues = "https://github.com/anthony-chirco/cli-mcp/issues"
+Homepage = "https://github.com/AndreasHeine/cli-mcp"
+Repository = "https://github.com/AndreasHeine/cli-mcp"
+Issues = "https://github.com/AndreasHeine/cli-mcp/issues"
 
 [project.scripts]
 cli-mcp = "cli_mcp.cli.main:main"

@@ -35,6 +35,7 @@ def prepare_git(cwd: Path) -> tuple[PreparedCli, MCPServer]:
         cwd=cwd,
         overrides={"include": ["status", "diff", "push"], "readonly": True, "docs": False},
     )
+    prepared.settings.security.readonly_argv = [[*prepared.launch, "status", "--verbose"]]
     server = build_server(prepared.settings, prepared.result, cwd=cwd)
     return prepared, server
 
@@ -73,11 +74,11 @@ async def test_read_only_mode_rejects_git_push_without_running_it(tmp_path: Path
         await server.call_tool("push", {})
 
 
-async def test_allow_pattern_lifts_the_read_only_block(tmp_path: Path) -> None:
+async def test_allow_pattern_cannot_lift_the_read_only_block(tmp_path: Path) -> None:
     repo = init_repo(tmp_path)
     prepared, _ = prepare_git(repo)
     prepared.settings.security.allow_patterns = ["git push"]
     policy = AccessPolicy(prepared.settings.security)
     decision = policy.evaluate("git", prepared.result.get("push"), ["git", "push", "origin", "main"])
-    assert decision.allowed is True
-    assert decision.requires_approval is True
+    assert decision.allowed is False
+    assert decision.requires_approval is False

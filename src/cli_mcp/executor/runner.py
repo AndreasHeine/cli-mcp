@@ -9,6 +9,7 @@ import signal
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from contextlib import suppress
 from ctypes import wintypes
 from dataclasses import dataclass
@@ -51,10 +52,18 @@ class ExecutionResult:
         }
 
 
+def _windows_function(name: str) -> Callable[..., Any]:
+    """Resolve a platform-specific ctypes API without requiring it on POSIX."""
+    function = getattr(ctypes, name, None)
+    if not callable(function):
+        raise OSError(f"Windows ctypes API {name!r} is unavailable")
+    return lambda *args, **kwargs: function(*args, **kwargs)
+
+
 def _output_encoding() -> str:
     """Use the Windows CLI OEM code page, or the POSIX locale encoding."""
     if os.name == "nt":
-        return f"cp{ctypes.WinDLL('kernel32', use_last_error=True).GetOEMCP()}"
+        return f"cp{_windows_function('WinDLL')('kernel32', use_last_error=True).GetOEMCP()}"
     return locale.getencoding()
 
 
@@ -76,7 +85,8 @@ class _WindowsTree:
     """Assign a suspended child to a job before allowing it to spawn children."""
 
     def __init__(self, process: subprocess.Popen[bytes]) -> None:
-        self.api = ctypes.WinDLL("kernel32", use_last_error=True)
+        # Win32 symbols are absent from POSIX ctypes and its platform-specific stubs.
+        self.api = _windows_function("WinDLL")("kernel32", use_last_error=True)
         signatures = {
             "CreateJobObjectW": ([ctypes.c_void_p, wintypes.LPCWSTR], wintypes.HANDLE),
             "OpenProcess": ([wintypes.DWORD, wintypes.BOOL, wintypes.DWORD], wintypes.HANDLE),
@@ -102,7 +112,7 @@ class _WindowsTree:
             function.restype = result
         self.job = self.api.CreateJobObjectW(None, None)
         if not self.job:
-            raise ctypes.WinError(ctypes.get_last_error())
+            raise _windows_error()
         try:
             self._assign(process.pid)
             self._resume(process.pid)
@@ -113,17 +123,17 @@ class _WindowsTree:
     def _assign(self, pid: int) -> None:
         handle = self.api.OpenProcess(0x0101, False, pid)  # SET_QUOTA | TERMINATE
         if not handle:
-            raise ctypes.WinError(ctypes.get_last_error())
+            raise _windows_error()
         try:
             if not self.api.AssignProcessToJobObject(self.job, handle):
-                raise ctypes.WinError(ctypes.get_last_error())
+                raise _windows_error()
         finally:
             self.api.CloseHandle(handle)
 
     def _resume(self, pid: int) -> None:
         snapshot = self.api.CreateToolhelp32Snapshot(0x0004, 0)  # SNAPTHREAD
         if snapshot == ctypes.c_void_p(-1).value:
-            raise ctypes.WinError(ctypes.get_last_error())
+            raise _windows_error()
         try:
             entry = _ThreadEntry()
             entry.dwSize = ctypes.sizeof(entry)
@@ -140,17 +150,17 @@ class _WindowsTree:
     def _resume_thread(self, tid: int) -> None:
         handle = self.api.OpenThread(0x0002, False, tid)  # SUSPEND_RESUME
         if not handle:
-            raise ctypes.WinError(ctypes.get_last_error())
+            raise _windows_error()
         try:
             if self.api.ResumeThread(handle) == 0xFFFFFFFF:
-                raise ctypes.WinError(ctypes.get_last_error())
+                raise _windows_error()
         finally:
             self.api.CloseHandle(handle)
 
     def stop(self) -> None:
         """Terminate only processes belonging to this invocation's job."""
         if not self.api.TerminateJobObject(self.job, 1):
-            raise ctypes.WinError(ctypes.get_last_error())
+            raise _windows_error()
 
     def close(self) -> None:
         """Terminate any remaining descendants and release the job handle."""
@@ -158,6 +168,16 @@ class _WindowsTree:
             self.stop()
         finally:
             self.api.CloseHandle(self.job)
+
+
+def _windows_error(code: int | None = None) -> OSError:
+    """Construct the native Windows error without importing Win32-only symbols on POSIX."""
+    if code is None:
+        code = int(_windows_function("get_last_error")())
+    error = _windows_function("WinError")(code)
+    if not isinstance(error, OSError):
+        raise TypeError("ctypes.WinError did not return an OSError")
+    return error
 
 
 class _PipeCapture:
@@ -182,15 +202,18 @@ class _PipeCapture:
         if self.tree is not None:
             import msvcrt
 
+            get_osfhandle = getattr(msvcrt, "get_osfhandle", None)
+            if not callable(get_osfhandle):
+                raise OSError("Windows msvcrt.get_osfhandle API is unavailable")
             available = wintypes.DWORD()
             if not self.tree.api.PeekNamedPipe(
-                msvcrt.get_osfhandle(self.fd), None, 0, None, ctypes.byref(available), None,
+                get_osfhandle(self.fd), None, 0, None, ctypes.byref(available), None,
             ):
-                error = ctypes.get_last_error()
+                error = int(_windows_function("get_last_error")())
                 if error in (109, 232):  # BROKEN_PIPE / NO_DATA
                     self.finished = True
                     return False
-                raise ctypes.WinError(error)
+                raise _windows_error(error)
             if not available.value:
                 return False
             size = min(size, available.value)
