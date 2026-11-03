@@ -98,19 +98,26 @@ security:
 ```
 
 cli-mcp checks the runtime is available (`docker`/`podman` on `PATH`) and prefixes the command with
-`run --rm`. The default bind mount is writable, so a sandboxed command can still change host
-files in that directory. Use `workdir_mount: false` for no working-directory host access, or
-configure read-only mounts in trusted runtime arguments. Do not expose runtime sockets or
-privileged mounts. Set runtime memory/CPU limits as appropriate; sandboxing is opt-in and
-does not sandbox discovery. Firecracker microVMs are planned for a later release.
+`run --rm`. The working directory is not mounted by default. Set `workdir_mount: true` only when
+the command needs host files; that bind mount is writable, so the command can change files in the
+directory. Do not expose runtime sockets or privileged mounts. Set runtime memory/CPU limits as
+appropriate; sandboxing is opt-in and does not sandbox discovery. Firecracker microVMs are planned
+for a later release.
 
 ## Limits
 
 `timeout_seconds` limits execution and reports `exitCode: -1` with a
 `[cli-mcp] timed out after Ns` note. `max_output_bytes` bounds retained raw bytes separately
 for stdout and stderr, including partial timeout output; excess output is drained and discarded.
-Truncation is reported in the result. These limits do not bound the target program's own RAM
-or CPU usage. Discovery also uses bounded output capture.
+Truncation is reported in the result. `max_argv_tokens` and `max_argv_bytes` bound each complete
+invocation, counting the executable and NUL separators; oversized or NUL-containing invocations
+are rejected before approval or process creation. These limits do not bound the target program's
+own RAM or CPU usage. Discovery also uses bounded output capture.
+
+`execution.cwd` sets the process working directory but does not confine file access. Paths passed
+as CLI arguments are interpreted by the target program and are not generally normalized or
+restricted by cli-mcp; their behavior differs between CLIs. Use a container without host directory
+mounts, or define and enforce CLI-specific path rules when filesystem confinement is required.
 
 `discovery.max_commands` additionally limits uncached help invocations, checked before
 process creation. The root query, failed attempts and alternate help flags consume this

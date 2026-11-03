@@ -2,9 +2,29 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
+from cli_mcp.config.settings import SecuritySettings
+from cli_mcp.errors import SecurityViolation
 from cli_mcp.models import CommandSpec, Parameter, ParamKind
+
+
+def enforce_argv_limits(argv: list[str], security: SecuritySettings) -> None:
+    """Reject empty, NUL-containing or oversized CLI invocations."""
+    if not argv:
+        raise SecurityViolation("command argv must not be empty")
+    if any("\0" in token for token in argv):
+        raise SecurityViolation("command argv must not contain NUL bytes")
+    if len(argv) > security.max_argv_tokens:
+        raise SecurityViolation(
+            f"command argv has {len(argv)} tokens; limit is {security.max_argv_tokens}"
+        )
+    size = sum(len(os.fsencode(token)) + 1 for token in argv)
+    if size > security.max_argv_bytes:
+        raise SecurityViolation(
+            f"command argv is {size} bytes; limit is {security.max_argv_bytes}"
+        )
 
 
 def format_value(param: Parameter, value: Any) -> str:

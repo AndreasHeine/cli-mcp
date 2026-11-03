@@ -23,7 +23,7 @@ class SandboxSettings(BaseModel):
 
     backend: Literal["docker", "podman"] = "docker"
     image: str = "alpine:3.20"
-    workdir_mount: bool = Field(True, description="Mount the current directory into the container")
+    workdir_mount: bool = Field(False, description="Mount the current directory into the container")
     container_workdir: str = "/work"
     network: bool = False
     extra_args: list[str] = Field(default_factory=list)
@@ -53,6 +53,8 @@ class SecuritySettings(BaseModel):
     allow_patterns: list[str] = Field(default_factory=list, description="Regexes that re-admit blocked verbs")
     timeout_seconds: float = Field(60.0, gt=0)
     max_output_bytes: int = Field(200_000, gt=0)
+    max_argv_tokens: int = Field(256, ge=1)
+    max_argv_bytes: int = Field(32_768, ge=1)
     sandbox: SandboxSettings | None = None
 
     @field_validator("readonly_argv")

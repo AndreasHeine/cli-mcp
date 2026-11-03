@@ -96,6 +96,8 @@ def template(
         "    approval_mode: auto  # auto/prompt require a local TTY; explicit always refuses",
         "    timeout_seconds: 60",
         "    max_output_bytes: 200000",
+        "    max_argv_tokens: 256",
+        "    max_argv_bytes: 32768",
         "    allowlist:",
         f"      - {binary}",
     ]
@@ -105,7 +107,7 @@ def template(
             "      backend: docker",
             f"      image: {sandbox_image}",
             "      network: false",
-            "      workdir_mount: true",
+            "      workdir_mount: false",
         ]
     lines = [
         "# cli-mcp configuration",

@@ -9,7 +9,7 @@ import pytest
 from cli_mcp.config.settings import SandboxSettings, SecuritySettings
 from cli_mcp.errors import ApprovalRequired, ExecutionError, SecurityViolation
 from cli_mcp.executor.approval import EXPLICIT_HINT, ApprovalGate
-from cli_mcp.executor.argv import build_argv, format_value
+from cli_mcp.executor.argv import build_argv, enforce_argv_limits, format_value
 from cli_mcp.executor.runner import TRUNCATION_NOTE, run
 from cli_mcp.executor.sandbox import sandbox_argv, sandbox_available
 from cli_mcp.models import CommandSpec, Parameter, ParamKind
@@ -68,13 +68,35 @@ def test_build_argv_expands_positional_lists() -> None:
     assert build_argv(["tool"], spec, {"left": "a.xml", "right": "b.xml"}) == ["tool", "diff", "a.xml", "b.xml"]
 
 
+def test_enforce_argv_limits_counts_tokens_bytes_and_nul_separators() -> None:
+    security = SecuritySettings(max_argv_tokens=2, max_argv_bytes=5)
+    enforce_argv_limits(["x", "é"], security)
+
+    with pytest.raises(SecurityViolation, match="2 tokens; limit is 1"):
+        enforce_argv_limits(["x", "y"], SecuritySettings(max_argv_tokens=1))
+    with pytest.raises(SecurityViolation, match="5 bytes; limit is 4"):
+        enforce_argv_limits(["x", "é"], SecuritySettings(max_argv_bytes=4))
+    with pytest.raises(SecurityViolation, match="NUL"):
+        enforce_argv_limits(["x", "bad\0arg"], SecuritySettings())
+    with pytest.raises(SecurityViolation, match="must not be empty"):
+        enforce_argv_limits([], SecuritySettings())
+
+
 def test_sandbox_argv_wraps_the_command_in_a_container() -> None:
-    argv = sandbox_argv(["git", "status"], SandboxSettings(), Path("/work"))
+    argv = sandbox_argv(["git", "status"], SandboxSettings(workdir_mount=True), Path("/work"))
     assert argv[:3] == ["docker", "run", "--rm"]
     assert "--network=none" in argv
     assert "--workdir" in argv and "/work" in argv
     assert "-v" in argv and str(Path("/work")) + ":/work" in argv
     assert argv[-3:] == ["alpine:3.20", "git", "status"]
+
+
+def test_sandbox_does_not_mount_the_working_directory_by_default() -> None:
+    settings = SandboxSettings()
+    assert settings.workdir_mount is False
+    argv = sandbox_argv(["tool"], settings, Path("/work"))
+    assert "-v" not in argv
+    assert "--workdir" not in argv
 
 
 def test_sandbox_argv_keeps_network_and_extra_args() -> None:
@@ -120,6 +142,11 @@ def test_run_reports_timeouts() -> None:
 def test_run_raises_when_the_binary_is_missing() -> None:
     with pytest.raises(ExecutionError, match="could not run"):
         run(["definitely-not-a-binary"], SecuritySettings())
+
+
+def test_run_rejects_oversized_argv_before_process_creation() -> None:
+    with pytest.raises(SecurityViolation, match="tokens; limit is 1"):
+        run(["tool", "arg"], SecuritySettings(max_argv_tokens=1))
 
 
 def test_run_requires_an_available_sandbox_backend(monkeypatch: pytest.MonkeyPatch) -> None:

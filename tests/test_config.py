@@ -91,6 +91,9 @@ def test_load_settings_defaults_without_file(tmp_path: Path) -> None:
     settings = load_settings(cwd=tmp_path, binary="git")
     assert settings.binary == "git"
     assert settings.mcp.transport == "stdio"
+    assert settings.security.max_argv_tokens == 256
+    assert settings.security.max_argv_bytes == 32768
+    assert settings.security.sandbox is None
 
 
 def test_load_settings_without_anything_raises(tmp_path: Path) -> None:
@@ -114,6 +117,7 @@ def test_template_round_trips_through_the_loader(tmp_path: Path) -> None:
     assert settings.security.approval is True
     assert settings.security.sandbox is not None
     assert settings.security.sandbox.image == "alpine:3.20"
+    assert settings.security.sandbox.workdir_mount is False
     assert "strategies: [reflection, help, manifest]" in text
 
 

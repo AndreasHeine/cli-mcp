@@ -19,6 +19,7 @@ from typing import IO, Any
 from cli_mcp.config.settings import SecuritySettings
 from cli_mcp.detect import reject_batch_target
 from cli_mcp.errors import ExecutionError
+from cli_mcp.executor.argv import enforce_argv_limits
 from cli_mcp.executor.sandbox import sandbox_argv, sandbox_available
 
 TRUNCATION_NOTE = "\n[cli-mcp: output truncated]"
@@ -332,6 +333,7 @@ def run(
     job/session members are terminated on timeout. Windows job members are also
     terminated after successful exit; already-reaped POSIX IDs are not signaled.
     """
+    enforce_argv_limits(argv, security)
     reject_batch_target(argv[0])
     sandboxed = security.sandbox is not None
     if sandboxed and security.sandbox is not None:

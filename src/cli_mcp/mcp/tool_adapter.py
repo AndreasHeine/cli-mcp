@@ -16,7 +16,7 @@ from cli_mcp.config.settings import Settings
 from cli_mcp.detect import executable_stem
 from cli_mcp.errors import SecurityViolation
 from cli_mcp.executor.approval import ApprovalGate
-from cli_mcp.executor.argv import build_argv
+from cli_mcp.executor.argv import build_argv, enforce_argv_limits
 from cli_mcp.executor.runner import run
 from cli_mcp.models import CommandSpec
 from cli_mcp.schema.jsonschema import input_schema
@@ -67,6 +67,7 @@ def build_tool(
         """Validate, gate and run the command, returning the execution payload as JSON."""
         validated = validate_arguments(spec, arguments)
         argv = build_argv(launch, spec, validated)
+        enforce_argv_limits(argv, settings.security)
         decision = policy.evaluate(settings.binary, spec, argv)
         if not decision.allowed:
             raise SecurityViolation(decision.reason or "command rejected by security policy")

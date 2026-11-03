@@ -36,10 +36,12 @@ cli-mcp init git --readonly --transport streamable-http --sandbox-image alpine:3
 | `security.allow_patterns` | `[]` | Regex overrides for custom block patterns outside read-only mode only. |
 | `security.timeout_seconds` | `60` | Hard limit per executed command. |
 | `security.max_output_bytes` | `200000` | Maximum retained raw bytes per output stream, including timeouts. |
+| `security.max_argv_tokens` | `256` | Maximum tokens in one complete CLI invocation, including the executable. |
+| `security.max_argv_bytes` | `32768` | Maximum encoded bytes in one complete CLI invocation, including token separators. |
 | `security.sandbox.backend` | `docker` | `docker` or `podman`. |
 | `security.sandbox.image` | `alpine:3.20` | Container image the command runs in. |
 | `security.sandbox.network` | `false` | Attach the container network. |
-| `security.sandbox.workdir_mount` | `true` | Mount the working directory at `/work`. |
+| `security.sandbox.workdir_mount` | `false` | Mount the working directory at `/work`; opt in only when required. |
 | `security.sandbox.container_workdir` | `/work` | Working directory inside the container. |
 | `security.sandbox.extra_args` | `[]` | Extra arguments for the container runtime. |
 | `discovery.strategies` | `[reflection, help, manifest]` | Ordered strategies to try. |

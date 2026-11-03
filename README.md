@@ -214,10 +214,13 @@ security:
   approval: true          # human confirmation required
   timeout_seconds: 30
   max_output_bytes: 200000
+  max_argv_tokens: 256
+  max_argv_bytes: 32768
   sandbox:
     backend: docker
     image: my-cli-image:latest
     network: false
+    workdir_mount: false
 ```
 
 - **Allow list** — a non-empty list restricts configured binaries by basename;
@@ -228,8 +231,10 @@ security:
 - **Approval mode** — `auto`/`prompt` require a local human at a terminal; without a TTY
   approval-required execution is refused. Clients cannot approve their own calls. Legacy
   `explicit` refuses approval-required calls. Normal stdio clients do not provide a local TTY.
-- **Sandboxing** — run the CLI inside Docker or Podman; the default working-directory
-  mount is writable. Discovery still runs on the host. Firecracker support planned.
+- **Sandboxing** — run the CLI inside Docker or Podman; the working directory is not
+  mounted by default. Discovery still runs on the host. Firecracker support planned.
+- **Execution limits** — each invocation is limited to 256 argv tokens and 32 KiB,
+  including the executable and separators, before approval or process creation.
 - **Argument validation** — arguments are validated against the generated JSON schema
   before the requested tool process is spawned. Arguments are not interpolated into
   a shell string.

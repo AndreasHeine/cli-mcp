@@ -1,6 +1,6 @@
 [project]
 name = "universal-cli-mcp-server"
-version = "0.1.0"
+version = "0.2.0"
 description = "Swagger for command line tools — expose any CLI as a fully compliant MCP server"
 readme = "README.md"
 requires-python = ">=3.13"

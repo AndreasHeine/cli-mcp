@@ -125,6 +125,20 @@ async def test_handler_rejects_missing_required_arguments(tmp_path: Path) -> Non
         await tool.handler(input=None, output="out.xml")
 
 
+async def test_handler_enforces_argv_limits_before_approval() -> None:
+    security = SecuritySettings(approval=True, max_argv_bytes=32)
+    settings = Settings(binary="reducer.py", security=security)
+    tool = build_tool(
+        SPEC,
+        ["reducer.py"],
+        settings,
+        AccessPolicy(security),
+        ApprovalGate(security, stdin=io.StringIO(), stdout=io.StringIO()),
+    )
+    with pytest.raises(SecurityViolation, match="bytes; limit is 32"):
+        await tool.handler(input="x" * 40, output="out.xml")
+
+
 async def test_read_only_mode_blocks_destructive_tools(tmp_path: Path) -> None:
     script = tmp_path / "git.py"
     script.write_text("pass\n", encoding="utf-8")
