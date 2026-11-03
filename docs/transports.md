@@ -55,6 +55,12 @@ Prefer Streamable HTTP; MCP is moving away from standalone SSE.
 ## Protocol behaviour
 
 `tools/list` returns the generated tools with their exact schemas; `tools/call` validates arguments,
-consults the security policy, runs the CLI and returns `{stdout, stderr, exitCode, executionTimeMs}`.
+consults the security policy, runs the CLI and returns
+`{stdout, stderr, exitCode, executionTimeMs, argv, sandboxed, truncated}`.
 Tools are generated at startup from discovery — no hand-written MCP code — and a docs tool
 (`<binary>_docs`) returns the generated Markdown unless `include_docs_tool: false`.
+
+A connected MCP client or a completed `tools/call` does not prove the target CLI succeeded:
+check `exitCode` and `stderr`. Policy/argument errors reject the tool call before execution;
+a target process failure is reported in the execution payload. `exitCode: 0` does not prove
+that no files changed, and `sandboxed: false` means the target ran on the host.

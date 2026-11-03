@@ -143,6 +143,10 @@ def _checklist(prepared: PreparedCli, tool_count: int) -> None:
     error_console.print(f"[green]✓[/green] Schemas generated [dim]{command_count}[/dim] input schemas")
     error_console.print(f"[green]✓[/green] MCP tools published [dim]{tool_count}[/dim] tools ({settings.server_name})")
     policy = AccessPolicy(settings.security).summary
+    if settings.security.readonly and not settings.security.readonly_argv:
+        error_console.print(
+            "[yellow]! Tools published, but all executions are blocked: security.readonly_argv is empty.[/yellow]"
+        )
     error_console.print(f"[green]✓[/green] MCP server started [dim]{endpoint}[/dim] · security: {policy}")
     for warning in prepared.result.warnings:
         error_console.print(f"[yellow]! {warning}[/yellow]")

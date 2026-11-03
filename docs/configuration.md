@@ -15,6 +15,7 @@ cli-mcp init git --readonly --transport streamable-http --sandbox-image alpine:3
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `binary` | required | CLI to expose: a name on `PATH`, or a path to a script. |
+| `execution.cwd` | unset | Absolute existing directory for discovery and tool execution; otherwise the launch directory is used. |
 | `mcp.transport` | `stdio` | `stdio`, `http`, `streamable-http` or `sse`. |
 | `mcp.host` | `127.0.0.1` | Bind host for HTTP transports. |
 | `mcp.port` | `8801` | Bind port for HTTP transports. |
@@ -102,3 +103,32 @@ alongside its short spelling. It is emitted as `-n`, not `--n`.
 Read-only is intentionally restrictive: adding `--readonly` alone now blocks every tool
 execution until exact invocations are configured. Client-supplied `approve: true` is no
 longer an approval mechanism. See [security.md](security.md) for migration and safe tests.
+
+## Working directory and restart
+
+An absolute target configuration filename does not make paths inside that file absolute.
+The target CLI decides how its relative paths are resolved. Set `execution.cwd` explicitly
+when it expects paths relative to a project root:
+
+```yaml
+execution:
+  cwd: 'C:\projects\nodeset-linker'
+```
+
+The server reads its configuration and discovers tools at startup. Restart it after changes
+to working directory, tools or read-only permissions; reconnect the MCP client afterwards.
+Use an absolute `manifest` path when changing the discovery working directory.
+
+Windows PowerShell:
+
+```powershell
+$env:PYTHONDONTWRITEBYTECODE = '1'
+& 'C:\projects\cli-mcp\.venv\Scripts\python.exe' -B -m cli_mcp.cli.main expose --config 'C:\projects\cli-mcp\cli-mcp.yaml'
+```
+
+Windows cmd.exe (two separate commands; PowerShell syntax does not apply):
+
+```bat
+set PYTHONDONTWRITEBYTECODE=1
+"C:\projects\cli-mcp\.venv\Scripts\python.exe" -B -m cli_mcp.cli.main expose --config "C:\projects\cli-mcp\cli-mcp.yaml"
+```

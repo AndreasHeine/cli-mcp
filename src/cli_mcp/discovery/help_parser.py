@@ -350,6 +350,11 @@ def _parse_usage(line: str, result: ParsedHelp) -> None:
             if index < len(tokens) and (_PLACEHOLDER_PATTERN.match(tokens[index]) or tokens[index].isupper()):
                 index += 1
             continue
+        if _SHORT_FLAG_PATTERN.match(token):
+            index += 1
+            if index < len(tokens) and (_PLACEHOLDER_PATTERN.match(tokens[index]) or tokens[index].isupper()):
+                index += 1
+            continue
         if _usage_optional_flag_token(token, result) or _usage_positional_token(token, result):
             index += 1
             continue
@@ -373,6 +378,10 @@ def _usage_optional_flag_token(token: str, result: ParsedHelp) -> bool:
 
 def _usage_positional_token(token: str, result: ParsedHelp) -> bool:
     """Handle a ``<name>`` or ``[name]`` token describing a positional argument."""
+    if re.fullmatch(r"[A-Z][A-Z0-9_]*", token) and not _is_generic_usage_name(token):
+        if not _known_positional(result, token):
+            result.positionals.append(ParsedPositional(name=token, required=True))
+        return True
     placeholder = _PLACEHOLDER_PATTERN.match(token)
     if placeholder:
         name = placeholder.group(1)
@@ -390,7 +399,6 @@ def _usage_positional_token(token: str, result: ParsedHelp) -> bool:
         name = bracketed.group(1) if bracketed else inner
         if (
             name
-            and not name.isupper()
             and not _known_positional(result, name)
             and not _is_generic_usage_name(name)
         ):

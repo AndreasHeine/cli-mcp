@@ -70,7 +70,7 @@ def build_tool(
         if not decision.allowed:
             raise SecurityViolation(decision.reason or "command rejected by security policy")
         gate.approve(spec.name, argv, decision)
-        result = await asyncio.to_thread(run, argv, settings.security, cwd)
+        result = await asyncio.to_thread(run, argv, settings.security, cwd or settings.execution.cwd)
         return json.dumps(result.as_payload())
 
     handler.__doc__ = published.get("description") or spec.description

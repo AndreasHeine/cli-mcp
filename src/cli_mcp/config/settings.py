@@ -6,6 +6,7 @@ discover it, how to execute it and how to publish it over MCP.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -127,6 +128,21 @@ class ServerSettings(BaseModel):
         return value if value.startswith("/") else f"/{value}"
 
 
+class ExecutionSettings(BaseModel):
+    """Explicit working directory for target discovery and execution."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cwd: Path | None = None
+
+    @field_validator("cwd")
+    @classmethod
+    def _cwd(cls, value: Path | None) -> Path | None:
+        if value is not None and (not value.is_absolute() or not value.is_dir()):
+            raise ValueError("execution.cwd must be an absolute path to an existing directory")
+        return value
+
+
 class Settings(BaseModel):
     """Complete configuration for one exposed binary."""
 
@@ -136,6 +152,7 @@ class Settings(BaseModel):
     security: SecuritySettings = Field(default_factory=SecuritySettings)
     discovery: DiscoverySettings = Field(default_factory=DiscoverySettings)
     mcp: ServerSettings = Field(default_factory=ServerSettings)
+    execution: ExecutionSettings = Field(default_factory=ExecutionSettings)
     manifest: str | None = Field(None, description="Optional manifest file that overrides discovery")
 
     @field_validator("binary")

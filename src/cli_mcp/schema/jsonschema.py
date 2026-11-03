@@ -97,6 +97,7 @@ def execution_result_schema() -> dict[str, Any]:
                 "description": "Exact argv the CLI process was started with",
             },
             "truncated": {"type": "boolean", "description": "Whether output was truncated"},
+            "sandboxed": {"type": "boolean", "description": "Whether execution used a container sandbox"},
         },
         "required": ["stdout", "stderr", "exitCode", "executionTimeMs"],
         "additionalProperties": False,

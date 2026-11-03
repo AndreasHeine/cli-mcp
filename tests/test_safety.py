@@ -86,11 +86,78 @@ def test_help_discovery_preserves_short_option_spelling() -> None:
     assert parameters[0].type == "integer"
 
 
+@pytest.mark.parametrize(
+    "usage,names,required",
+    [
+        ("nodeset-linker analyze [OPTIONS] CONFIG", ["CONFIG"], [True]),
+        ("nodeset-linker diff [OPTIONS] OLD NEW", ["OLD", "NEW"], [True, True]),
+        ("tool [OPTIONS] [OUTPUT]", ["OUTPUT"], [False]),
+        ("tool [OPTIONS] COMMAND [ARGS]...", [], []),
+        ("tool -n NODE --config FILE OUTPUT", ["OUTPUT"], [True]),
+    ],
+)
+def test_click_usage_positionals(usage, names, required) -> None:
+    params = parameters_from(parse_help(f"Usage: {usage}\n\nOptions:\n  --help  Show help\n"))
+    assert [param.name for param in params] == names
+    assert [param.required for param in params] == required
+
+
+def test_execution_cwd_rejects_relative_or_missing_directory() -> None:
+    with pytest.raises(ValidationError, match=r"execution\.cwd"):
+        Settings(binary="tool", execution={"cwd": "."})
+    with pytest.raises(ValidationError, match=r"execution\.cwd"):
+        Settings(binary="tool", execution={"cwd": str(Path.cwd() / "not-existing-cwd-12345")})
+
+
+async def test_configured_execution_cwd_is_used_without_changing_host_directory() -> None:
+    original = Path.cwd()
+    directory = original / "src"
+    argv = [sys.executable, "-I", "-S", "-B", "-c", "import os; print(os.getcwd())"]
+    settings = Settings(
+        binary=sys.executable,
+        execution={"cwd": str(directory)},
+        security=SecuritySettings(readonly=True, readonly_argv=[argv]),
+    )
+    tool = build_tool(
+        CommandSpec(name="cwd"), argv, settings, AccessPolicy(settings.security), ApprovalGate(settings.security)
+    )
+    result = json.loads(await tool.handler())
+    assert Path(result["stdout"].strip()) == directory
+    assert Path.cwd() == original
+    from cli_mcp.schema.jsonschema import execution_result_schema
+
+    schema = execution_result_schema()
+    assert set(result) == set(schema["properties"])
+    override = build_tool(
+        CommandSpec(name="cwd"),
+        argv,
+        settings,
+        AccessPolicy(settings.security),
+        ApprovalGate(settings.security),
+        cwd=original,
+    )
+    assert Path(json.loads(await override.handler())["stdout"].strip()) == original
+
+
+def test_empty_readonly_allowlist_warns_at_startup(monkeypatch: pytest.MonkeyPatch) -> None:
+    from cli_mcp.cli.main import _checklist, error_console
+    from cli_mcp.core import PreparedCli
+
+    messages: list[str] = []
+    monkeypatch.setattr(error_console, "print", lambda *args: messages.append(str(args)))
+    settings = Settings(binary=sys.executable, security=SecuritySettings(readonly=True))
+    target = TargetInfo(binary=sys.executable, resolved_path=sys.executable, origin="native")
+    prepared = PreparedCli(settings=settings, target=target, result=DiscoveryResult(binary=sys.executable))
+    _checklist(prepared, 1)
+    assert any("all executions are blocked" in message for message in messages)
+
+
 def test_discovery_capture_is_bounded_and_preserves_environment() -> None:
     context = DiscoveryContext(DiscoverySettings())
     code = "import os; print(os.environ['CLI_MCP_SAFE_TEST']); print('x' * 500000)"
     result = context.run(
-        [sys.executable, "-I", "-S", "-B", "-c", code], env={"CLI_MCP_SAFE_TEST": "in-memory"},
+        [sys.executable, "-I", "-S", "-B", "-c", code],
+        env={"CLI_MCP_SAFE_TEST": "in-memory"},
     )
     assert result.exit_code == 0
     assert result.stdout.startswith("in-memory\n")
@@ -101,7 +168,8 @@ def test_discovery_capture_is_bounded_and_preserves_environment() -> None:
 def test_discovery_timeout_is_reported() -> None:
     context = DiscoveryContext(DiscoverySettings())
     result = context.run(
-        [sys.executable, "-I", "-S", "-B", "-c", "import time; time.sleep(1)"], timeout=0.1,
+        [sys.executable, "-I", "-S", "-B", "-c", "import time; time.sleep(1)"],
+        timeout=0.1,
     )
     assert result.timed_out
     assert result.exit_code == -1
@@ -110,7 +178,8 @@ def test_discovery_timeout_is_reported() -> None:
 
 @pytest.mark.parametrize("max_commands", [1, 3])
 def test_help_process_budget_is_checked_before_spawn(
-    max_commands: int, monkeypatch: pytest.MonkeyPatch,
+    max_commands: int,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[list[str]] = []
     root = "usage: tool COMMAND\n\ncommands:\n" + "".join(f"  cmd{i:03d}  Child command\n" for i in range(20))
@@ -180,7 +249,8 @@ def test_tool_limit_stops_prefetching_children(monkeypatch: pytest.MonkeyPatch) 
     def fake_run(self: DiscoveryContext, argv: list[str]) -> HelpResult:
         calls.append(argv)
         return HelpResult(
-            argv=argv, exit_code=0,
+            argv=argv,
+            exit_code=0,
             stdout="usage: tool COMMAND\n\noptions:\n  --verbose  Toggle\n\ncommands:\n  child  Child command\n",
             stderr="",
         )
@@ -206,7 +276,9 @@ def test_blocked_binary_is_rejected_before_discovery(monkeypatch: pytest.MonkeyP
 async def test_safe_tool_handler_uses_exact_readonly_allowlist() -> None:
     argv = [sys.executable, "-I", "-S", "-B", "-c", "print('safe-mcp')"]
     settings = Settings(binary=sys.executable, security=SecuritySettings(readonly=True, readonly_argv=[argv]))
-    tool = build_tool(CommandSpec(name="safe"), argv, settings, AccessPolicy(settings.security), ApprovalGate(settings.security))
+    tool = build_tool(
+        CommandSpec(name="safe"), argv, settings, AccessPolicy(settings.security), ApprovalGate(settings.security)
+    )
     payload = json.loads(await tool.handler())
     assert payload["exitCode"] == 0
     assert payload["stdout"] == "safe-mcp\n"
@@ -222,7 +294,9 @@ async def test_mcp_server_dispatches_safe_command_without_transport_or_files() -
         security=SecuritySettings(readonly=True, readonly_argv=[[sys.executable, *path]]),
     )
     result = DiscoveryResult(
-        binary=sys.executable, resolved_path=sys.executable, commands=[CommandSpec(name="safe", path=path)],
+        binary=sys.executable,
+        resolved_path=sys.executable,
+        commands=[CommandSpec(name="safe", path=path)],
     )
     server = build_server(settings, result)
     tools = await server.list_tools()

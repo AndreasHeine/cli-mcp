@@ -101,6 +101,7 @@ def prepare(
     if overrides:
         apply_overrides(settings, **overrides)
 
+    working_dir = settings.execution.cwd or working_dir
     AccessPolicy(settings.security).authorize_binary(settings.binary)
     target = resolve_binary(settings.binary)
     help_suffix = "-h" if Path(target.resolved_path).stem.casefold() == "git" else "--help"
