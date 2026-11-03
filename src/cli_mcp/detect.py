@@ -7,10 +7,11 @@ picked before the generic parser is used.
 
 from __future__ import annotations
 
+import re
 import shutil
 import sys
 from dataclasses import dataclass, replace
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Literal
 
 from cli_mcp.errors import BinaryNotFoundError, SecurityViolation
@@ -35,6 +36,17 @@ _FINGERPRINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 _MIN_FINGERPRINT_SCORE = 2
+_ANSI_SEQUENCE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
+
+def strip_ansi(text: str) -> str:
+    """Remove ANSI CSI sequences before interpreting help text."""
+    return _ANSI_SEQUENCE.sub("", text)
+
+
+def executable_stem(path: str) -> str:
+    """Extract a display name from Windows or POSIX paths on either platform."""
+    return PureWindowsPath(path).stem if "\\" in path else Path(path).stem
 
 
 @dataclass(frozen=True)
@@ -120,6 +132,7 @@ def fingerprint(help_text: str | None) -> str | None:
     """Identify the CLI framework from help output, if a known one matches."""
     if not help_text:
         return None
+    help_text = strip_ansi(help_text)
     best_framework: str | None = None
     best_score = 0
     for framework, markers in _FINGERPRINTS:

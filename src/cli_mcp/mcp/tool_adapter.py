@@ -13,6 +13,7 @@ from typing import Annotated, Any
 from pydantic import WithJsonSchema
 
 from cli_mcp.config.settings import Settings
+from cli_mcp.detect import executable_stem
 from cli_mcp.errors import SecurityViolation
 from cli_mcp.executor.approval import ApprovalGate
 from cli_mcp.executor.argv import build_argv
@@ -94,11 +95,9 @@ def _signature(schema: dict[str, Any]) -> inspect.Signature:
 
 def docs_tool_name(binary: str) -> str:
     """Name of the generated documentation tool."""
-    from pathlib import Path
-
     from cli_mcp.models import sanitize_tool_name
 
-    stem = Path(binary).stem or binary
+    stem = executable_stem(binary) or binary
     return sanitize_tool_name(f"{stem}_docs")
 
 

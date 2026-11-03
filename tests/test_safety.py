@@ -24,6 +24,28 @@ from cli_mcp.security.policy import AccessPolicy
 from cli_mcp.security.readonly import assess
 
 
+@pytest.mark.parametrize(
+    "top,bottom,left,right,line",
+    [("+", "+", "|", "+", "-"), ("\u256d", "\u2570", "\u2502", "\u256e", "\u2500")],
+)
+def test_rich_typer_help_preserves_options_and_commands(top, bottom, left, right, line) -> None:
+    end = "+" if top == "+" else "\u256f"
+    text = (
+        "Usage: tool [OPTIONS] COMMAND [ARGS]...\n"
+        f"{top}{line} Options {line * 20}{right}\n"
+        f"{left} \x1b[36m--\x1b[0m\x1b[1mverbose\x1b[0m   Show details {left}\n"
+        f"{bottom}{line * 31}{end}\n"
+        f"{top}{line} Commands {line * 19}{right}\n"
+        f"{left} inspect   Inspect metadata {left}\n"
+        f"{left} convert   Convert metadata {left}\n"
+        f"{bottom}{line * 31}{end}\n"
+    )
+    parsed = parse_help(text)
+    assert [option.name for option in parsed.options] == ["verbose"]
+    assert [command.name for command in parsed.subcommands] == ["inspect", "convert"]
+    assert parsed.positionals == []
+
+
 @pytest.mark.parametrize("flag,short", [("--force", "-f"), ("--hard", None), (None, "-rf")])
 def test_destructive_flag_normalization(flag: str | None, short: str | None) -> None:
     spec = CommandSpec(name="status", parameters=[Parameter(name="arg", cli_name=flag, short=short)])

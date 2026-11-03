@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from cli_mcp.detect import classify, fingerprint, launch_command, launch_for, resolve_binary
+from cli_mcp.detect import classify, executable_stem, fingerprint, launch_command, launch_for, resolve_binary
 from cli_mcp.errors import BinaryNotFoundError
 
 
@@ -87,6 +87,21 @@ def test_fingerprint_unknown_and_empty() -> None:
     assert fingerprint(None) is None
     assert fingerprint("") is None
     assert fingerprint("totally unknown output") is None
+
+
+@pytest.mark.parametrize("path", [r"C:\tools\reducer.py", "/usr/bin/reducer.py", r"\\server\share\reducer.py"])
+def test_executable_stem_handles_both_path_styles(path: str) -> None:
+    assert executable_stem(path) == "reducer"
+
+
+def test_fingerprint_typer_with_ansi_inside_flags() -> None:
+    text = (
+        "Usage: tool [OPTIONS]\nOptions:\n"
+        "\x1b[36m--\x1b[0m\x1b[1minstall-completion\x1b[0m\n"
+        "\x1b[36m--\x1b[0m\x1b[1mshow-completion\x1b[0m\n"
+        "Commands:\nShow this message and exit.\n"
+    )
+    assert fingerprint(text) == "typer"
 
 
 def test_with_help_records_framework() -> None:

@@ -13,6 +13,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Literal
 
+from cli_mcp.detect import strip_ansi
+
 SectionName = Literal["body", "options", "commands", "positional", "other"]
 
 HEADER_PATTERN = re.compile(r"^\s*([A-Za-z][A-Za-z0-9 /\-]*):\s*$")
@@ -554,12 +556,33 @@ def _is_section_title(header: str) -> bool:
     return len(words) <= 4 and "(" not in header and "," not in header
 
 
+_PANEL_TITLE = re.compile(r"^[+\u256d][-\u2500]+\s*([A-Za-z][A-Za-z /-]*?)\s*[-\u2500]+[+\u256e]$")
+_PANEL_BOTTOM = re.compile(r"^[+\u2570][-\u2500]+[+\u256f]$")
+
+
+def _plain_help_lines(text: str) -> list[str]:
+    """Unwrap Rich panels while preserving table-row indentation."""
+    lines: list[str] = []
+    for raw in strip_ansi(text).splitlines():
+        stripped = raw.strip()
+        title = _PANEL_TITLE.match(stripped)
+        if title:
+            lines.append(f"{title.group(1).strip()}:")
+        elif _PANEL_BOTTOM.match(stripped):
+            lines.append("")
+        elif stripped.startswith(("|", "\u2502")) and stripped.endswith(("|", "\u2502")):
+            lines.append(raw[raw.index(stripped[0]) + 1 : raw.rindex(stripped[-1])].rstrip())
+        else:
+            lines.append(raw)
+    return lines
+
+
 def parse_help(text: str) -> ParsedHelp:
     """Parse a single help page into description, options, positionals, subcommands."""
     result = ParsedHelp()
     state = _ParseState()
 
-    for raw in text.splitlines():
+    for raw in _plain_help_lines(text):
         if not raw.strip():
             state.current_option = None
             continue

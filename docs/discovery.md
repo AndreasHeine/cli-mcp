@@ -30,6 +30,8 @@ The fallback works on anything that prints help: `<cli> --help`, then `<cli> <co
 for every subcommand found, down to `discovery.max_depth`. The generic grammar understands
 `usage:` lines, `options:` / `flags:` / `positional arguments:` sections, `--flag <METAVAR>`
 pairs, `(default: x)` and `[required]` markers, short/long aliases and continuation lines.
+ANSI color sequences are removed before fingerprinting and parsing; Rich/Typer panel
+headers and rows are normalized for both ASCII and Unicode terminal output.
 
 `discovery.max_commands` limits both published tools and uncached help invocations across
 the shared discovery context. The root query, failures and alternate help flags count;

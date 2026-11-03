@@ -8,11 +8,10 @@ spellings) and a *refine* hook (to adjust the resulting command).
 from __future__ import annotations
 
 from collections.abc import Callable
-from pathlib import Path
 from typing import Any
 
 from cli_mcp.config.settings import Settings
-from cli_mcp.detect import TargetInfo, launch_for
+from cli_mcp.detect import TargetInfo, executable_stem, launch_for
 from cli_mcp.discovery.base import DiscoveryContext, HelpResult
 from cli_mcp.discovery.help_parser import ParsedHelp, is_help_noise, parse_help
 from cli_mcp.models import CommandSpec, DiscoveryResult, Parameter, ParamKind, sanitize_tool_name
@@ -106,7 +105,7 @@ def _publishable_options(parsed: ParsedHelp) -> bool:
 
 def tool_base(target: TargetInfo) -> str:
     """Tool name for the root command: the binary's file name without its suffix."""
-    stem = Path(target.resolved_path).stem if target.resolved_path else target.binary
+    stem = executable_stem(target.resolved_path) if target.resolved_path else target.binary
     return sanitize_tool_name(stem or target.binary)
 
 
