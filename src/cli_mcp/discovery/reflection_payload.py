@@ -53,6 +53,7 @@ def parameter_from(raw: dict[str, Any]) -> Parameter:
         kind=kind,
         cli_name=raw.get("cli_name"),
         short=raw.get("short"),
+        short_only=bool(raw.get("short_only", False)),
         type=declared,
         description=raw.get("description") or None,
         required=bool(raw.get("required", False)),

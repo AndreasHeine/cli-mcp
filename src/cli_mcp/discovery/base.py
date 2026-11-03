@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import os
-import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
-from cli_mcp.config.settings import DiscoverySettings
+from cli_mcp.config.settings import DiscoverySettings, SecuritySettings
 from cli_mcp.detect import TargetInfo, launch_for
+from cli_mcp.errors import ExecutionError
+from cli_mcp.executor.runner import run
 from cli_mcp.models import DiscoveryResult
 
 MAX_HELP_BYTES = 400_000
@@ -24,11 +25,12 @@ class HelpResult:
     stdout: str
     stderr: str
     timed_out: bool = False
+    budget_exhausted: bool = False
 
     @property
     def ok(self) -> bool:
         """Return whether the invocation produced usable output."""
-        if self.timed_out:
+        if self.timed_out or self.budget_exhausted:
             return False
         return bool(self.stdout.strip() or self.stderr.strip())
 
@@ -46,6 +48,7 @@ class DiscoveryContext:
     cwd: Path | None = None
     help_argv_suffix: str = "--help"
     cache: dict[tuple[str, ...], HelpResult] = field(default_factory=dict)
+    _help_calls: int = field(default=0, init=False)
 
     def run(self, argv: list[str], timeout: float | None = None, env: dict[str, str] | None = None) -> HelpResult:
         """Run *argv* without a shell and capture its output."""
@@ -54,34 +57,36 @@ class DiscoveryContext:
         if env:
             environment.update(env)
         try:
-            completed = subprocess.run(
-                argv,
-                capture_output=True,
-                text=True,
-                timeout=limit,
-                cwd=str(self.cwd) if self.cwd else None,
-                env=environment,
+            completed = run(
+                argv, SecuritySettings(timeout_seconds=limit, max_output_bytes=MAX_HELP_BYTES),
+                self.cwd, env=environment,
             )
-        except subprocess.TimeoutExpired as exc:
-            stdout = _decode(exc.stdout)
-            stderr = _decode(exc.stderr)
-            return HelpResult(argv=list(argv), exit_code=-1, stdout=stdout, stderr=stderr, timed_out=True)
-        except OSError as exc:
+        except ExecutionError as exc:
             return HelpResult(argv=list(argv), exit_code=-1, stdout="", stderr=str(exc))
         return HelpResult(
             argv=list(argv),
-            exit_code=completed.returncode,
-            stdout=_truncate(completed.stdout),
-            stderr=_truncate(completed.stderr),
+            exit_code=completed.exit_code,
+            stdout=completed.stdout,
+            stderr=completed.stderr,
+            timed_out=completed.exit_code == -1 and "[cli-mcp] timed out after" in completed.stderr,
         )
 
     def help_for(self, target: TargetInfo, path: list[str] | None = None, suffix: str | None = None) -> HelpResult:
-        """Run ``<binary> <path...> <suffix>`` with caching."""
+        """Run cached help queries with a shared budget checked before spawning."""
         argv = [*launch_for(target.resolved_path), *(path or []), suffix or self.help_argv_suffix]
         key = tuple(argv)
         cached = self.cache.get(key)
         if cached is not None:
             return cached
+        if self._help_calls >= self.settings.max_commands:
+            return HelpResult(
+                argv=argv,
+                exit_code=-1,
+                stdout="",
+                stderr=f"discovery help invocation budget exhausted ({self.settings.max_commands} calls)",
+                budget_exhausted=True,
+            )
+        self._help_calls += 1
         result = self.run(argv)
         self.cache[key] = result
         return result
@@ -122,15 +127,3 @@ class DiscoveryProvider(Protocol):
     def discover(self, target: TargetInfo, ctx: DiscoveryContext) -> DiscoveryResult | None:
         """Return command definitions, or ``None`` when this provider yields nothing."""
         ...
-
-
-def _decode(value: str | bytes | None) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, bytes):
-        return value.decode("utf-8", errors="replace")
-    return value
-
-
-def _truncate(text: str) -> str:
-    return text[:MAX_HELP_BYTES]

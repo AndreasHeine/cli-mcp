@@ -38,6 +38,7 @@ function walk(command, prefix) {
       kind: option.required ? 'option' : 'flag',
       cli_name: long || short || null,
       short: short || null,
+      short_only: !long && Boolean(short),
       type: optionType(option),
       description: option.description || '',
       required: Boolean(option.required),

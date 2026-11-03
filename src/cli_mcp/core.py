@@ -13,6 +13,7 @@ from cli_mcp.discovery.base import DiscoveryContext
 from cli_mcp.discovery.pipeline import discover
 from cli_mcp.models import DiscoveryResult
 from cli_mcp.plugins import registry_with_plugins
+from cli_mcp.security.policy import AccessPolicy
 
 
 @dataclass(frozen=True)
@@ -100,6 +101,7 @@ def prepare(
     if overrides:
         apply_overrides(settings, **overrides)
 
+    AccessPolicy(settings.security).authorize_binary(settings.binary)
     target = resolve_binary(settings.binary)
     help_suffix = "-h" if Path(target.resolved_path).stem.casefold() == "git" else "--help"
     context = DiscoveryContext(settings.discovery, cwd=working_dir, help_argv_suffix=help_suffix)

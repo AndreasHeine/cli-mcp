@@ -20,6 +20,7 @@ cli-mcp:
 
   security:
     readonly: true
+    readonly_argv: []  # Deny execution until verified full argv vectors are listed.
     approval: false
     allowlist:
       - reducer.py

@@ -42,6 +42,10 @@ class SecuritySettings(BaseModel):
 
     allowlist: list[str] = Field(default_factory=list, description="Binaries that may be exposed")
     readonly: bool = False
+    readonly_argv: list[list[str]] = Field(
+        default_factory=list,
+        description="Exact complete argv vectors explicitly approved by the operator for read-only execution",
+    )
     approval: bool = False
     approval_mode: ApprovalMode = "auto"
     block_patterns: list[str] = Field(default_factory=list, description="Extra regexes rejected in argv")
@@ -49,6 +53,13 @@ class SecuritySettings(BaseModel):
     timeout_seconds: float = Field(60.0, gt=0)
     max_output_bytes: int = Field(200_000, gt=0)
     sandbox: SandboxSettings | None = None
+
+    @field_validator("readonly_argv")
+    @classmethod
+    def _readonly_argv(cls, value: list[list[str]]) -> list[list[str]]:
+        if any(not argv or any("\0" in token for token in argv) for argv in value):
+            raise ValueError("readonly_argv entries must be non-empty argv vectors without NUL bytes")
+        return value
 
     @field_validator("allowlist")
     @classmethod

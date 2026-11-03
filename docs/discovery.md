@@ -31,6 +31,16 @@ for every subcommand found, down to `discovery.max_depth`. The generic grammar u
 `usage:` lines, `options:` / `flags:` / `positional arguments:` sections, `--flag <METAVAR>`
 pairs, `(default: x)` and `[required]` markers, short/long aliases and continuation lines.
 
+`discovery.max_commands` limits both published tools and uncached help invocations across
+the shared discovery context. The root query, failures and alternate help flags count;
+cache hits do not. The budget is checked before spawning a process. Reaching either limit
+stops further child queries and produces a discovery warning; already discovered tools are
+retained. Consequently, fewer than `max_commands` tools may be discovered.
+
+Include/exclude filters apply to publication, not to process permissions. They do not prevent
+help queries for excluded commands. Discovery help still runs on the host even when execution
+uses read-only mode or a container; only inspect trusted CLIs.
+
 Framework grammars refine that generic pass when a fingerprint matches:
 
 | Provider | Rewrites |

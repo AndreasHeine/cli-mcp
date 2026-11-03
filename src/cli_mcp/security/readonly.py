@@ -149,8 +149,9 @@ def assess(binary: str, spec: CommandSpec) -> RiskAssessment:
         if is_destructive_verb(verb):
             return RiskAssessment(True, f"subcommand {verb!r} is a destructive verb")
     for param in spec.parameters:
-        flag = (param.cli_name or param.name).lower()
-        if flag in DESTRUCTIVE_FLAGS or (param.short or "").lower() in DESTRUCTIVE_FLAGS:
+        flag = param.cli_flag.lower()
+        short = f"-{param.short}".lower() if param.short else ""
+        if flag in DESTRUCTIVE_FLAGS or short in DESTRUCTIVE_FLAGS:
             return RiskAssessment(True, f"parameter {param.cli_flag} is a destructive flag")
     if spec.destructive:
         return RiskAssessment(True, "the manifest marked this command as destructive")

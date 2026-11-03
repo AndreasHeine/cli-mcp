@@ -13,7 +13,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal
 
-from cli_mcp.errors import BinaryNotFoundError
+from cli_mcp.errors import BinaryNotFoundError, SecurityViolation
 
 Origin = Literal["native", "python", "node"]
 
@@ -78,6 +78,12 @@ def classify(resolved_path: Path) -> Origin:
     return "native"
 
 
+def reject_batch_target(path: str) -> None:
+    """Reject Windows batch files, which can invoke a shell despite shell=False."""
+    if Path(path).suffix.lower() in {".bat", ".cmd"}:
+        raise SecurityViolation("Windows .bat/.cmd targets are not supported; use the underlying executable")
+
+
 def resolve_binary(binary: str) -> TargetInfo:
     """Locate *binary* as a path or on ``PATH`` and classify it."""
     candidate = Path(binary)
@@ -90,11 +96,13 @@ def resolve_binary(binary: str) -> TargetInfo:
         raise BinaryNotFoundError(
             f"binary {binary!r} not found. Install it, pass an absolute path, or add it to PATH."
         )
+    reject_batch_target(str(resolved))
     return TargetInfo(binary=binary, resolved_path=str(resolved), origin=classify(resolved))
 
 
 def launch_for(path: str) -> list[str]:
     """Command that runs *path*: an interpreter prefix when it is a script."""
+    reject_batch_target(path)
     origin = classify(Path(path))
     if origin == "python":
         return [sys.executable, path]

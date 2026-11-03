@@ -22,13 +22,6 @@ from cli_mcp.schema.jsonschema import input_schema
 from cli_mcp.schema.validate import validate_arguments
 from cli_mcp.security.policy import AccessPolicy
 
-#: Control argument clients use to approve a risky execution.
-APPROVE_ARGUMENT = "approve"
-APPROVE_SCHEMA: dict[str, Any] = {
-    "type": "boolean",
-    "description": "Set true to approve this execution when the security policy requires approval.",
-}
-
 
 @dataclass(frozen=True)
 class ToolDefinition:
@@ -65,35 +58,28 @@ def build_tool(
     target is a script, otherwise the resolved binary path.
     """
     schema = input_schema(spec)
-    risk = policy.assess(settings.binary, spec).destructive
-    approval_enabled = settings.security.approval or spec.destructive or risk
     published = dict(schema)
-    properties = dict(published.get("properties", {}))
-    if approval_enabled:
-        properties[APPROVE_ARGUMENT] = dict(APPROVE_SCHEMA)
-    published["properties"] = properties
+    published["properties"] = dict(published.get("properties", {}))
     published["additionalProperties"] = False
 
     async def handler(**arguments: Any) -> str:
         """Validate, gate and run the command, returning the execution payload as JSON."""
-        approve = bool(arguments.get(APPROVE_ARGUMENT, False))
-        payload_arguments = {key: value for key, value in arguments.items() if key != APPROVE_ARGUMENT}
-        validated = validate_arguments(spec, payload_arguments)
+        validated = validate_arguments(spec, arguments)
         argv = build_argv(launch, spec, validated)
         decision = policy.evaluate(settings.binary, spec, argv)
         if not decision.allowed:
             raise SecurityViolation(decision.reason or "command rejected by security policy")
-        gate.approve(spec.name, argv, decision, approved=approve)
+        gate.approve(spec.name, argv, decision)
         result = await asyncio.to_thread(run, argv, settings.security, cwd)
         return json.dumps(result.as_payload())
 
     handler.__doc__ = published.get("description") or spec.description
-    handler.__signature__ = _signature(published, approval_enabled)  # type: ignore[attr-defined]
+    handler.__signature__ = _signature(published)  # type: ignore[attr-defined]
     description = tool_description(spec, settings.binary, policy)
     return ToolDefinition(name=spec.name, description=description, schema=published, handler=handler)
 
 
-def _signature(schema: dict[str, Any], approval_enabled: bool) -> inspect.Signature:
+def _signature(schema: dict[str, Any]) -> inspect.Signature:
     """Keyword-only signature whose JSON Schema matches *schema* exactly."""
     parameters: list[inspect.Parameter] = []
     for name, definition in schema.get("properties", {}).items():
@@ -102,15 +88,6 @@ def _signature(schema: dict[str, Any], approval_enabled: bool) -> inspect.Signat
         default = inspect.Parameter.empty if required else None
         parameters.append(
             inspect.Parameter(name, inspect.Parameter.KEYWORD_ONLY, default=default, annotation=annotation)
-        )
-    if approval_enabled and APPROVE_ARGUMENT not in schema.get("properties", {}):
-        parameters.append(
-            inspect.Parameter(
-                APPROVE_ARGUMENT,
-                inspect.Parameter.KEYWORD_ONLY,
-                default=False,
-                annotation=Annotated[Any, WithJsonSchema(APPROVE_SCHEMA)],
-            )
         )
     return inspect.Signature(parameters, return_annotation=str)
 

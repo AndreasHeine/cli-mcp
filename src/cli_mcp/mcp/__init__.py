@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from cli_mcp.mcp.server import build_server, publish_schema, tool_definitions, tool_schemas
 from cli_mcp.mcp.tool_adapter import (
-    APPROVE_ARGUMENT,
-    APPROVE_SCHEMA,
     ToolDefinition,
     build_docs_tool,
     build_tool,
@@ -13,8 +11,6 @@ from cli_mcp.mcp.tool_adapter import (
 )
 
 __all__ = [
-    "APPROVE_ARGUMENT",
-    "APPROVE_SCHEMA",
     "ToolDefinition",
     "build_docs_tool",
     "build_server",

@@ -13,7 +13,7 @@ from cli_mcp.config.settings import SecuritySettings, ServerSettings, Settings
 from cli_mcp.errors import ApprovalRequired, SchemaError, SecurityViolation
 from cli_mcp.executor.approval import ApprovalGate
 from cli_mcp.mcp.server import build_server, publish_schema, tool_definitions, tool_schemas
-from cli_mcp.mcp.tool_adapter import APPROVE_ARGUMENT, build_docs_tool, build_tool, docs_tool_name, tool_description
+from cli_mcp.mcp.tool_adapter import build_docs_tool, build_tool, docs_tool_name, tool_description
 from cli_mcp.models import CommandSpec, DiscoveryResult, Parameter, ParamKind
 from cli_mcp.security.policy import AccessPolicy
 
@@ -56,10 +56,11 @@ def test_tool_definitions_publish_one_tool_per_command() -> None:
     assert "reducer.py reduce" in reduce.description
 
 
-def test_tool_definitions_add_approve_only_when_needed() -> None:
+def test_tool_definitions_never_publish_client_approval() -> None:
     settings = Settings(binary="reducer.py", security=SecuritySettings(allowlist=["reducer.py"], approval=True))
     definitions = {definition.name: definition for definition in tool_definitions(settings, result_for())}
-    assert APPROVE_ARGUMENT in definitions["reduce"].schema["properties"]
+    assert "approve" not in definitions["reduce"].schema["properties"]
+    assert "approve" not in definitions["push"].schema["properties"]
 
 
 def test_tool_definitions_reject_binaries_outside_the_allow_list() -> None:
@@ -133,16 +134,17 @@ async def test_read_only_mode_blocks_destructive_tools(tmp_path: Path) -> None:
         await tool.handler()
 
 
-async def test_approval_mode_requires_an_explicit_approve(tmp_path: Path) -> None:
-    script = tmp_path / "reducer.py"
-    script.write_text("print('ok')\n", encoding="utf-8")
-    settings = Settings(binary=str(script), security=SecuritySettings(allowlist=["reducer.py"], approval=True))
+async def test_approval_mode_rejects_client_approval() -> None:
+    settings = Settings(binary=sys.executable, security=SecuritySettings(approval=True))
     gate = ApprovalGate(settings.security, stdin=io.StringIO(), stdout=io.StringIO())
-    tool = build_tool(SPEC, launch_for_binary(script), settings, AccessPolicy(settings.security), gate)
+    tool = build_tool(
+        SPEC, [sys.executable, "-I", "-S", "-B", "-c", "print('ok')"],
+        settings, AccessPolicy(settings.security), gate,
+    )
     with pytest.raises(ApprovalRequired, match="needs approval"):
         await tool.handler(input="model.xml", output="out.xml")
-    payload: dict[str, Any] = json.loads(await tool.handler(input="model.xml", output="out.xml", approve=True))
-    assert payload["stdout"] == "ok\n"
+    with pytest.raises(SchemaError, match="unknown argument"):
+        await tool.handler(input="model.xml", output="out.xml", approve=True)
 
 
 async def test_server_call_tool_returns_text_content(tmp_path: Path) -> None:

@@ -1,7 +1,6 @@
 """Tests for argv building, subprocess execution, sandboxing and the approval gate."""
 
 import io
-import subprocess
 import sys
 from pathlib import Path
 
@@ -85,19 +84,18 @@ def test_sandbox_argv_keeps_network_and_extra_args() -> None:
     assert argv == ["docker", "run", "--rm", "--user", "nobody", "alpine:3.20", "tool"]
 
 
-def test_sandbox_available_reports_missing_backend(tmp_path: Path) -> None:
+def test_sandbox_available_reports_missing_backend() -> None:
     assert sandbox_available("definitely-not-a-container-backend") is False
     assert sandbox_available(sys.executable) is True
 
 
-def test_run_captures_output_and_exit_code(tmp_path: Path) -> None:
-    script = tmp_path / "echo.py"
-    script.write_text("import sys\nprint('hello')\nprint('oops', file=sys.stderr)\nsys.exit(3)\n", encoding="utf-8")
-    result = run([sys.executable, str(script)], SecuritySettings())
+def test_run_captures_output_and_exit_code() -> None:
+    argv = [sys.executable, "-I", "-S", "-B", "-c", "import sys; print('hello'); print('oops', file=sys.stderr); sys.exit(3)"]
+    result = run(argv, SecuritySettings())
     assert result.exit_code == 3
     assert result.stdout == "hello\n"
     assert result.stderr == "oops\n"
-    assert result.argv == [sys.executable, str(script)]
+    assert result.argv == argv
     assert result.sandboxed is False
     assert result.truncated is False
     assert result.execution_time_ms >= 0
@@ -106,19 +104,15 @@ def test_run_captures_output_and_exit_code(tmp_path: Path) -> None:
     assert payload["executionTimeMs"] >= 0
 
 
-def test_run_truncates_large_output(tmp_path: Path) -> None:
-    script = tmp_path / "big.py"
-    script.write_text("print('x' * 500)", encoding="utf-8")
-    result = run([sys.executable, str(script)], SecuritySettings(max_output_bytes=100))
+def test_run_truncates_large_output() -> None:
+    result = run([sys.executable, "-I", "-S", "-B", "-c", "print('x' * 500)"], SecuritySettings(max_output_bytes=100))
     assert result.truncated is True
     assert result.stdout.endswith(TRUNCATION_NOTE)
     assert len(result.stdout) < 500
 
 
-def test_run_reports_timeouts(tmp_path: Path) -> None:
-    script = tmp_path / "sleep.py"
-    script.write_text("import time\nprint('early')\ntime.sleep(5)\n", encoding="utf-8")
-    result = run([sys.executable, str(script)], SecuritySettings(timeout_seconds=0.3))
+def test_run_reports_timeouts() -> None:
+    result = run([sys.executable, "-I", "-S", "-B", "-c", "import time; print('early'); time.sleep(5)"], SecuritySettings(timeout_seconds=0.3))
     assert result.exit_code == -1
     assert "timed out after 0.3s" in result.stderr
 
@@ -135,16 +129,16 @@ def test_run_requires_an_available_sandbox_backend(monkeypatch: pytest.MonkeyPat
         run(["git", "--version"], security)
 
 
-def test_run_executes_inside_the_sandbox(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_executes_inside_the_sandbox(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("cli_mcp.executor.runner.sandbox_available", lambda backend: True)
     captured: list[list[str]] = []
 
-    def fake_run(argv, **kwargs):
-        captured.append(list(argv))
-        return subprocess.CompletedProcess(argv, 0, stdout="ok", stderr="")
+    def fake_sandbox_argv(argv, sandbox, cwd):
+        captured.append(sandbox_argv(argv, sandbox, cwd))
+        return [sys.executable, "-I", "-S", "-B", "-c", "print('ok', end='')"]
 
-    monkeypatch.setattr("cli_mcp.executor.runner.subprocess.run", fake_run)
-    result = run(["git", "status"], SecuritySettings(sandbox=SandboxSettings()), cwd=tmp_path)
+    monkeypatch.setattr("cli_mcp.executor.runner.sandbox_argv", fake_sandbox_argv)
+    result = run(["git", "status"], SecuritySettings(sandbox=SandboxSettings()), cwd=Path.cwd())
     assert result.sandboxed is True
     assert result.stdout == "ok"
     assert captured[0][:2] == ["docker", "run"]
@@ -162,16 +156,17 @@ def test_gate_lets_unrisky_commands_through() -> None:
     gate.approve("status", ["git", "status"], Decision(allowed=True, requires_approval=False))
 
 
-def test_gate_accepts_explicit_approval() -> None:
-    gate = ApprovalGate(SecuritySettings(approval=True))
-    gate.approve("push", ["git", "push"], Decision(allowed=True, requires_approval=True), approved=True)
+def test_gate_requires_local_approval() -> None:
+    gate = ApprovalGate(SecuritySettings(approval=True), stdin=io.StringIO(), stdout=io.StringIO())
+    with pytest.raises(ApprovalRequired, match="Local terminal approval"):
+        gate.approve("push", ["git", "push"], Decision(allowed=True, requires_approval=True))
 
 
 def test_gate_prompts_on_a_terminal_and_accepts_yes() -> None:
     stdout = io.StringIO()
     gate = ApprovalGate(SecuritySettings(approval=True, approval_mode="prompt"), stdin=FakeTTY("y\n"), stdout=stdout)
     gate.approve("push", ["git", "push", "origin", "main"], Decision(allowed=True, requires_approval=True, reason="push is destructive"))
-    assert "Tool Request: git push origin main" in stdout.getvalue()
+    assert 'Tool Request: ["git", "push", "origin", "main"]' in stdout.getvalue()
     assert "Reason: push is destructive" in stdout.getvalue()
     assert "Approve? [y/N]" in stdout.getvalue()
 
@@ -186,12 +181,12 @@ def test_gate_denies_when_the_answer_is_no() -> None:
         gate.approve("push", ["git", "push"], Decision(allowed=True, requires_approval=True))
 
 
-def test_gate_falls_back_to_explicit_approval_without_a_terminal() -> None:
+def test_gate_refuses_without_a_terminal() -> None:
     gate = ApprovalGate(SecuritySettings(approval=True, approval_mode="prompt"), stdin=io.StringIO(), stdout=io.StringIO())
     with pytest.raises(ApprovalRequired) as raised:
         gate.approve("push", ["git", "push"], Decision(allowed=True, requires_approval=True))
     assert EXPLICIT_HINT in str(raised.value)
-    assert "git push" in str(raised.value)
+    assert '["git", "push"]' in str(raised.value)
 
 
 def test_gate_explicit_mode_never_prompts() -> None:

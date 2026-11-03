@@ -20,12 +20,10 @@ def test_resolve_binary_absolute_script(tmp_path: Path) -> None:
 
 
 def test_resolve_binary_from_path() -> None:
-    git = shutil.which("git")
-    if git is None:
-        pytest.skip("git is not installed")
-    target = resolve_binary("git")
+    executable = Path(sys.executable).name
+    target = resolve_binary(executable)
     assert target.origin == "native"
-    assert target.resolved_path.lower().endswith("git.exe")
+    assert Path(target.resolved_path).name == executable
 
 
 def test_resolve_binary_missing() -> None:

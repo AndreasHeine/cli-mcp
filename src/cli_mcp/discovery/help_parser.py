@@ -76,6 +76,7 @@ class ParsedOption:
 
     name: str
     short: str | None = None
+    short_only: bool = False
     metavar: str | None = None
     description: str = ""
     type: str = "string"
@@ -268,6 +269,7 @@ def _parse_option_line(line: str) -> tuple[ParsedOption | None, str]:
     aliases = markers.get("aliases")
     if aliases:
         description = f"{description} (aliases: {aliases})".strip()
+    short_only = long_name is None
     if not long_name:
         # Only a short flag was advertised; publish it as an option using its own name.
         long_name = shorts[0] if shorts else "arg"
@@ -275,6 +277,7 @@ def _parse_option_line(line: str) -> tuple[ParsedOption | None, str]:
     option = ParsedOption(
         name=long_name,
         short=shorts[0] if shorts else None,
+        short_only=short_only,
         metavar=metavar,
         description=description,
         type=_infer_type(metavar, markers),

@@ -45,7 +45,7 @@ def test_scan_argv_detects_dangerous_shapes() -> None:
 def test_assess_blocks_binaries_verbs_and_flags() -> None:
     assert assess("rm", CommandSpec(name="rm")).destructive is True
     assert assess("git", CommandSpec(name="push", path=["push"])).reason == "subcommand 'push' is a destructive verb"
-    spec = CommandSpec(name="clean", path=["clean"], parameters=[Parameter(name="force", kind=ParamKind.FLAG)])
+    spec = CommandSpec(name="status", path=["status"], parameters=[Parameter(name="force", kind=ParamKind.FLAG)])
     assert assess("git", spec).destructive is True
     declared = CommandSpec(name="wipe", destructive=True)
     assert assess("tool", declared).destructive is True
@@ -81,11 +81,10 @@ def test_evaluate_readonly_rejects_dangerous_argv_even_for_benign_verbs() -> Non
     assert decision.allowed is False
 
 
-def test_evaluate_allow_pattern_readmits() -> None:
+def test_evaluate_allow_pattern_cannot_bypass_readonly() -> None:
     policy = AccessPolicy(SecuritySettings(readonly=True, allow_patterns=[r"git push origin main"]))
     decision = policy.evaluate("git", CommandSpec(name="push", path=["push"]), ["git", "push", "origin", "main"])
-    assert decision.allowed is True
-    assert decision.requires_approval is True
+    assert decision.allowed is False
 
 
 def test_evaluate_block_pattern_always_applies() -> None:
@@ -108,7 +107,7 @@ def test_evaluate_benign_needs_no_approval() -> None:
 
 
 def test_authorize_execution_raises() -> None:
-    policy = AccessPolicy(SecuritySettings(readonly=True))
+    policy = AccessPolicy(SecuritySettings(readonly=True, readonly_argv=[["git", "status"]]))
     with pytest.raises(SecurityViolation):
         policy.authorize_execution("git", CommandSpec(name="push", path=["push"]), ["git", "push"])
     policy.authorize_execution("git", CommandSpec(name="status", path=["status"]), ["git", "status"])

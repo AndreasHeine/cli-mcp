@@ -140,7 +140,8 @@ binary: opcua-nodeset-linker
 
 security:
   allowlist: [git, kubectl, docker, opcua-nodeset-linker]
-  readonly: true          # block destructive verbs
+  readonly: true          # deny unless the complete argv is explicitly listed
+  readonly_argv: []       # configure verified exact invocations before use
   approval: true          # human confirmation required
   timeout_seconds: 30
   max_output_bytes: 200000
@@ -151,14 +152,19 @@ security:
 ```
 
 - **Allow list** — only approved binaries can be exposed.
-- **Read-only mode** — rejects risky commands (`rm`, `del`, `mkfs`, `format`, `shutdown`,
-  `reboot`, `delete`, `purge`, `--force`, `reset --hard`, …).
-- **Approval mode** — `prompt` asks on a terminal; `explicit` requires the client to pass
-  `_approve: true` (safe for stdio/HTTP where stdin is the protocol channel).
-- **Sandboxing** — run the CLI inside Docker or Podman; Firecracker support planned.
+- **Read-only mode** — only explicitly listed complete argv vectors may execute;
+  known risky commands and flags are additionally blocked.
+- **Approval mode** — `auto`/`prompt` require a local human at a terminal; without a TTY
+  execution is refused. Clients cannot approve their own calls. Legacy `explicit` refuses.
+- **Sandboxing** — run the CLI inside Docker or Podman; the default working-directory
+  mount is writable. Discovery still runs on the host. Firecracker support planned.
 - **Argument validation** — arguments are validated against the generated JSON schema
   before any process is spawned. No shell is used and no argument is ever interpolated into
   a shell string.
+
+Windows batch targets (`.bat`/`.cmd`) are rejected. Output is retained within a byte budget,
+including timeouts. See [security.md](docs/security.md) for limitations, configuration migration,
+and non-invasive Windows/Linux tests using a single loopback ping.
 
 ---
 

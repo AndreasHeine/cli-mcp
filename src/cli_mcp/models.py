@@ -88,6 +88,7 @@ class Parameter(BaseModel):
     kind: ParamKind = ParamKind.OPTION
     cli_name: str | None = Field(None, description="Original CLI flag name (dashed)")
     short: str | None = Field(None, description="Short flag alias, e.g. 'i' for -i")
+    short_only: bool = Field(False, description="The CLI advertises only a short option")
     type: str = Field("string", description="JSON Schema type")
     description: str | None = None
     required: bool = False
@@ -136,11 +137,15 @@ class Parameter(BaseModel):
         """Force the boolean schema type for a CLI toggle flag."""
         if self.kind is ParamKind.FLAG:
             self.type = "boolean"
+        if self.short_only and not self.short:
+            raise ValueError("short_only requires a short option spelling")
         return self
 
     @property
     def cli_flag(self) -> str:
-        """Long flag as it must appear on the command line."""
+        """Option spelling as it must appear on the command line."""
+        if self.short_only or (self.cli_name is None and self.short):
+            return f"-{self.short}"
         return f"--{self.cli_name or self.name}"
 
 

@@ -27,13 +27,14 @@ cli-mcp init git --readonly --transport streamable-http --sandbox-image alpine:3
 | `mcp.json_response` | `false` | Stream JSON instead of SSE events (HTTP transports). |
 | `mcp.stateless_http` | `false` | No session state between requests. |
 | `security.allowlist` | unset | Binaries that may run at all; empty means "the configured binary". |
-| `security.readonly` | `false` | Reject destructive verbs, dangerous argv and blocked binaries. |
-| `security.approval` | `false` | Ask for approval before risky commands. |
-| `security.approval_mode` | `auto` | `auto`, `prompt` or `explicit`. |
+| `security.readonly` | `false` | Deny execution unless its full argv exactly matches `readonly_argv`; known destructive invocations still rejected. |
+| `security.readonly_argv` | `[]` | Operator-approved full argv vectors, including executable path and all arguments; empty denies every read-only invocation. |
+| `security.approval` | `false` | Require local human approval for every command (classified risky commands always require it). |
+| `security.approval_mode` | `auto` | `auto`/`prompt` require a local TTY; legacy `explicit` always refuses approval-required execution. |
 | `security.block_patterns` | `[]` | Substrings in the final argv that are always rejected. |
-| `security.allow_patterns` | `[]` | Substrings that override read-only and block patterns. |
+| `security.allow_patterns` | `[]` | Regex overrides for custom block patterns outside read-only mode only. |
 | `security.timeout_seconds` | `60` | Hard limit per executed command. |
-| `security.max_output_bytes` | `200000` | Output is truncated past this size. |
+| `security.max_output_bytes` | `200000` | Maximum retained raw bytes per output stream, including timeouts. |
 | `security.sandbox.backend` | `docker` | `docker` or `podman`. |
 | `security.sandbox.image` | `alpine:3.20` | Container image the command runs in. |
 | `security.sandbox.network` | `false` | Attach the container network. |
@@ -44,7 +45,7 @@ cli-mcp init git --readonly --transport streamable-http --sandbox-image alpine:3
 | `discovery.include` | unset | Only expose these command names. |
 | `discovery.exclude` | unset | Never expose these command names. |
 | `discovery.max_depth` | `2` | How deep to walk subcommands. |
-| `discovery.max_commands` | `120` | Cap on published tools. |
+| `discovery.max_commands` | `120` | Cap on published tools and total uncached help invocations per discovery context (including root and fallback calls). |
 | `discovery.allow_import_reflection` | `false` | Allow reflection, which imports or executes the target. |
 | `discovery.help_timeout_seconds` | `10` | Timeout for each `--help` invocation. |
 | `manifest` | unset | Inline manifest tools; see below. |
@@ -94,3 +95,10 @@ cli-mcp:
 `kind` is `option`, `flag` or `positional`. Flags are always published as booleans,
 whatever the manifest says. Argument names are snake_case identifiers; the CLI spelling
 lives in `cli_name`.
+
+For a short-only option use `short: n` without a `cli_name`, or set `short_only: true`
+alongside its short spelling. It is emitted as `-n`, not `--n`.
+
+Read-only is intentionally restrictive: adding `--readonly` alone now blocks every tool
+execution until exact invocations are configured. Client-supplied `approve: true` is no
+longer an approval mechanism. See [security.md](security.md) for migration and safe tests.

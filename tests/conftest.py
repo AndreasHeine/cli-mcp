@@ -49,6 +49,7 @@ def settings_factory():
         security = SecuritySettings(
             allowlist=list(overrides.pop("allowlist", [])),
             readonly=bool(overrides.pop("readonly", False)),
+            readonly_argv=list(overrides.pop("readonly_argv", [])),
             approval=bool(overrides.pop("approval", False)),
             approval_mode=str(overrides.pop("approval_mode", "auto")),
             block_patterns=list(overrides.pop("block_patterns", [])),

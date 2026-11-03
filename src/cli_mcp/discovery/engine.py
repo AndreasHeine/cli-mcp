@@ -77,6 +77,7 @@ def parameters_from(parsed: ParsedHelp) -> list[Parameter]:
                 kind=ParamKind.FLAG if option.is_flag else ParamKind.OPTION,
                 cli_name=option.name,
                 short=option.short,
+                short_only=option.short_only,
                 type=option.type,
                 description=description,
                 required=option.required,
@@ -161,8 +162,11 @@ def discover_from_help(
     prefix = sanitize_tool_name(target.binary) if settings.mcp.tool_prefix else None
 
     root_result = ctx.help_for(target)
-    if not root_result.ok and child_suffix is not None:
+    if not root_result.ok and not root_result.budget_exhausted and child_suffix is not None:
         root_result = ctx.help_for(target, suffix=child_suffix)
+    if root_result.budget_exhausted:
+        result.add_warning(root_result.stderr)
+        return result
     root_text = preprocess_text(target.root_help or root_result.text, preprocess)
     if not root_result.ok:
         result.add_warning(f"no help output from {target.binary} --help")
@@ -186,6 +190,10 @@ def discover_from_help(
         if path or emits_root:
             commands.append(command_for(target, path, parsed, provider, help_result, refine, prefix))
         seen.add(tuple(path))
+        if len(commands) >= limit:
+            if parsed.subcommands or queue:
+                result.add_warning(f"discovery capped at {limit} commands")
+            break
         _enqueue_children(target, ctx, path, parsed, settings, seen, queue, result, child_suffix, preprocess)
 
     result.commands = commands
@@ -212,8 +220,14 @@ def _enqueue_children(
         if name.lower() in SKIP_SUBCOMMANDS or (tuple([*path, name]) in seen):
             continue
         child = ctx.help_for(target, [*path, name])
+        if child.budget_exhausted:
+            result.add_warning(child.stderr)
+            break
         if not child.ok and child_suffix is not None:
             child = ctx.help_for(target, [*path, name], suffix=child_suffix)
+            if child.budget_exhausted:
+                result.add_warning(child.stderr)
+                break
         if not child.ok:
             result.add_warning(f"no help output for {target.binary} {' '.join([*path, name])} --help")
             continue

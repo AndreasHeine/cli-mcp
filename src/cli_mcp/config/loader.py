@@ -91,8 +91,9 @@ def template(
     security_lines = [
         "  security:",
         f"    readonly: {'true' if readonly else 'false'}",
+        "    readonly_argv: []  # exact full argv vectors; read-only denies everything until configured",
         f"    approval: {'true' if approval else 'false'}",
-        "    approval_mode: auto  # auto | prompt | explicit",
+        "    approval_mode: auto  # auto/prompt require a local TTY; explicit always refuses",
         "    timeout_seconds: 60",
         "    max_output_bytes: 200000",
         "    allowlist:",

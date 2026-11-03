@@ -48,17 +48,19 @@ class AccessPolicy:
         """Decide whether *argv* for *spec* may run, and whether approval is needed."""
         assessment: RiskAssessment = assess(binary, spec)
         blocked_reason = matches_block_patterns(argv, self.settings.block_patterns)
-        if blocked_reason and not allowed_by_override(argv, self.settings.allow_patterns):
+        override = not self.settings.readonly and allowed_by_override(argv, self.settings.allow_patterns)
+        if blocked_reason and not override:
             return Decision(False, False, blocked_reason)
 
         dangerous = scan_argv(argv)
-        if dangerous and self.settings.readonly and not allowed_by_override(argv, self.settings.allow_patterns):
+        if dangerous and self.settings.readonly:
             return Decision(False, False, f"read-only mode: {dangerous}")
 
-        if self.settings.readonly and assessment.destructive and not allowed_by_override(
-            argv, self.settings.allow_patterns
-        ):
+        if self.settings.readonly and assessment.destructive:
             return Decision(False, False, f"read-only mode: {assessment.reason}")
+
+        if self.settings.readonly and argv not in self.settings.readonly_argv:
+            return Decision(False, False, "read-only mode: exact invocation is not in security.readonly_argv")
 
         requires_approval = self.settings.approval or assessment.destructive
         return Decision(True, requires_approval, None)
@@ -80,7 +82,7 @@ class AccessPolicy:
         if self.settings.allowlist:
             parts.append(f"allow list: {', '.join(self.settings.allowlist)}")
         if self.settings.readonly:
-            parts.append("read-only")
+            parts.append(f"read-only ({len(self.settings.readonly_argv)} exact invocations)")
         if self.settings.approval:
             parts.append(f"approval: {self.settings.approval_mode}")
         if self.settings.sandbox:

@@ -70,6 +70,12 @@ cli-mcp expose kubectl --transport streamable-http --port 8801 --readonly
 
 ## Reading the tools
 
+Read-only clients must configure `security.readonly_argv` with exact verified invocations;
+`--readonly` by itself now denies all executions. Approval-required calls need a local server
+TTY and cannot be self-approved by an MCP client. Thus the stdio example with `--approval`
+will refuse execution without a separate trusted local approval channel.
+See [security.md](security.md) for the security model and migration.
+
 Ask the server what it published, without starting a client:
 
 ```bash

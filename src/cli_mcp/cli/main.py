@@ -158,7 +158,9 @@ def expose(
     transport: TransportName | None = typer.Option(None, "--transport", help="stdio, http, streamable-http or sse"),
     host: str | None = typer.Option(None, "--host", help="Bind host for HTTP transports"),
     port: int | None = typer.Option(None, "--port", help="Bind port for HTTP transports"),
-    readonly: bool | None = typer.Option(None, "--readonly/--no-readonly", help="Reject destructive commands"),
+    readonly: bool | None = typer.Option(
+        None, "--readonly/--no-readonly", help="Only allow configured exact read-only invocations"
+    ),
     approval: bool | None = typer.Option(None, "--approval/--no-approval", help="Require approval before risky runs"),
     approval_mode: ApprovalMode | None = typer.Option(None, "--approval-mode", help="auto, prompt or explicit"),
     allow: list[str] | None = typer.Option(None, "--allow", help="Allow list of binaries"),
@@ -203,7 +205,9 @@ def serve(
     transport: TransportName | None = typer.Option(None, "--transport", help="stdio, http, streamable-http or sse"),
     host: str | None = typer.Option(None, "--host", help="Bind host for HTTP transports"),
     port: int | None = typer.Option(None, "--port", help="Bind port for HTTP transports"),
-    readonly: bool | None = typer.Option(None, "--readonly/--no-readonly", help="Reject destructive commands"),
+    readonly: bool | None = typer.Option(
+        None, "--readonly/--no-readonly", help="Only allow configured exact read-only invocations"
+    ),
     approval: bool | None = typer.Option(None, "--approval/--no-approval", help="Require approval before risky runs"),
     approval_mode: ApprovalMode | None = typer.Option(None, "--approval-mode", help="auto, prompt or explicit"),
     allow: list[str] | None = typer.Option(None, "--allow", help="Allow list of binaries"),
