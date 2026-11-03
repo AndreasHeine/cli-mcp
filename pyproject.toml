@@ -1,11 +1,11 @@
 [project]
-name = "cli-mcp"
+name = "universal-cli-mcp-server"
 version = "0.1.0"
 description = "Swagger for command line tools — expose any CLI as a fully compliant MCP server"
 readme = "README.md"
 requires-python = ">=3.13"
 license = { text = "Apache-2.0" }
-authors = [{ name = "cli-mcp contributors" }]
+authors = [{ name = "Andreas Heine" }]
 keywords = ["mcp", "cli", "model-context-protocol", "json-schema", "openapi", "discovery"]
 classifiers = [
     "Development Status :: 4 - Beta",
